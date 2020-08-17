@@ -32,7 +32,7 @@ EOF
 ## Parsing input arguments
 
 FILE=
-DIR = 
+DIR= 
 while getopts “hf:d:” OPTION
 do
      case $OPTION in
