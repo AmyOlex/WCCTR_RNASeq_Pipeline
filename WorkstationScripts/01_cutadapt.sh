@@ -68,5 +68,21 @@ cat $INFILE | while read s1 s2
 do
 	base1=`basename $s1 .fastq.gz`
 	base2=`basename $s2 .fastq.gz`
-	cutadapt -a AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT -A AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT -u 5 -U 5 -o 01_cutadapt/$base1.trimmed.fastq.gz -p 01_cutadapt/$base2.trimmed.fastq.gz $s1 $s2
+	
+	## Illumina TruSeq Universal Adaptors
+	#cutadapt -a AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT -A AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT -u 5 -U 5 -o 01_cutadapt/$base1.trimmed.fastq.gz -p 01_cutadapt/$base2.trimmed.fastq.gz $s1 $s2 --minimum-length 30
+
+	## Illumina Universal Adaptors
+	cutadapt -a AGATCGGAAGAG -A AGATCGGAAGAG -o 01_cutadapt/$base1.trimmed.fastq.gz -p 01_cutadapt/$base2.trimmed.fastq.gz -j 30 $s1 $s2 --minimum-length 30	
+
+
+
+
 done
+
+
+#Illumina Universal Adapter: AGATCGGAAGAG 
+#Illumina Small RNA 3' Adapter: TGGAATTCTCGG 
+#Illumina Small RNA 5' Adapter: GATCGTCGGACT 
+#Nextera Transposase Sequence: CTGTCTCTTATA
+#SOLID Small RNA Adapter: CGCCTTGGCCGT
