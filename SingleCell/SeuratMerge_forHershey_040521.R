@@ -21,11 +21,15 @@
 ## sample file format:
 ## SampleName, DataType (Seurat|10X), SamplePath, Condition
 
+## UPDATED 4/14/21: Hershey cannot install the SeuratDisk package, so changing the last save as seurath5 to save a RDS file.
 library(Seurat)
-library(SeuratDisk)
+##library(SeuratDisk)
 library(stringr)
 library(DropletUtils)
 library(optparse)
+
+## Set the max allowable RAM to 100GB
+options(future.globals.maxSize = 100000 * 1024^2)
 
 start_time <- Sys.time()
 
@@ -121,7 +125,7 @@ print("Finding integration features...")
 ## Select integration features
 mid_time <- Sys.time()
 hfile_features <- SelectIntegrationFeatures(object.list = seurat_list, nfeatures = 3000)
-options(future.globals.maxSize = 10000 * 1024^2)
+
 seurat_list <- PrepSCTIntegration(object.list = seurat_list, anchor.features = hfile_features, verbose = FALSE)
 print(Sys.time() - mid_time)
 
@@ -185,7 +189,9 @@ print(Sys.time() - mid_time)
 print("Saving Annotated Seurat File...")
 mid_time <- Sys.time()
 ### Save Seurat Object for future use
-SaveH5Seurat(seurat.integrated, filename=paste0(savedir, "_SeuratMerged_Annotated.h5Seurat"), overwrite = TRUE)
+#SaveH5Seurat(seurat.integrated, filename=paste0(savedir, "_SeuratMerged_Annotated.h5Seurat"), overwrite = TRUE)
+save(seurat.integrated, file = paste0(savedir, "_SeuratMerged_Annotated.RData"), compress = TRUE)
+
 print(Sys.time() - mid_time)
 
 print("Seurat merging completed in: ")
