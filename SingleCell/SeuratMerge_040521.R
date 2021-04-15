@@ -88,6 +88,10 @@ print(paste("Output Directory:", outDir))
 print(paste("Cores Specified:", numCores))
 print(paste("Using Parallel: ", opt$parallel))
 
+if(!opt$parallel){
+  print("WARNING: Seurat integration functions will NOT be parallized.  Use the --parallel flag to parallelize Seurat integration functions.")
+}
+
 ############## PROCESS CONFIG FILE###########################
 # Read in the provided config file and loop for each row.
 toProcess = read.table(inFile, header=TRUE, sep=",", stringsAsFactors = FALSE)
@@ -157,7 +161,7 @@ plan()
 
 ## Select integration features
 mid_time <- Sys.time()
-hfile_features <- SelectIntegrationFeatures(object.list = seurat_list, nfeatures = 3000)
+hfile_features <- SelectIntegrationFeatures(object.list = seurat_list, nfeatures = 2000)
 options(future.globals.maxSize = 10000 * 1024^2)
 seurat_list <- PrepSCTIntegration(object.list = seurat_list, anchor.features = hfile_features, verbose = FALSE)
 print(Sys.time() - mid_time)
@@ -165,7 +169,7 @@ print(Sys.time() - mid_time)
 ## Find the anchors and then integrate the data sets.
 mid_time <- Sys.time()
 print("Finding Anchors...")
-seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = "SCT", anchor.features = hfile_features, verbose = FALSE)
+seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = "SCT", anchor.features = hfile_features, reference = 1, verbose = FALSE)
 print(Sys.time() - mid_time)
 
 mid_time <- Sys.time()
