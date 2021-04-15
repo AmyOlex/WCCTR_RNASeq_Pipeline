@@ -27,6 +27,12 @@ library(Seurat)
 library(stringr)
 library(DropletUtils)
 library(optparse)
+library(foreach)
+library(doParallel)
+library(future)
+
+#numCores <- detectCores()
+#registerDoParallel(numCores)
 
 ## Set the max allowable RAM to 100GB
 options(future.globals.maxSize = 100000 * 1024^2)
@@ -41,7 +47,13 @@ option_list = list(
               help="Required. Input config file with sample information.", metavar="character"),
   make_option(c("-o", "--outdir"), type="character", 
               help="output directory for results report (must already exist). Default is current directory.",
-              default = "./", metavar="character")
+              default = "./", metavar="character"),
+  make_option(c("--parallel"), type="logical", 
+              help="Optional. Use paralellization for Merging and Integration (note, normalization of individual samples is always parallelized).",
+              default = FALSE, action = "store_true", metavar="logical"),
+  make_option(c("-n", "--numCores"), type="numeric", 
+              help="Optional. Specify number of cores to use. Default is 1.",
+              default = 1, metavar="character")
 ); 
 
 opt_parser = OptionParser(option_list=option_list);
@@ -63,6 +75,7 @@ runID <- opt$runid
 inFile <- opt$configfile
 outDir <- opt$outdir
 savedir <- paste0(outDir,runID)
+numCores <- opt$numCores
 
 #### Ok, print out all the current running options as a summary.
 
@@ -70,6 +83,8 @@ print("Summary of input options:\n")
 print(paste("Run Name:", runID))
 print(paste("ConfigFile:", inFile))
 print(paste("Output Directory:", outDir))
+print(paste("Cores Specified:", numCores))
+print(paste("Using Parallel: ", opt$parallel))
 
 ############## PROCESS CONFIG FILE###########################
 # Read in the provided config file and loop for each row.
@@ -78,9 +93,12 @@ toProcess = read.table(inFile, header=TRUE, sep=",", stringsAsFactors = FALSE)
 toProcess$SeuratObj <- ""
 print(paste(dim(toProcess)[1], " rows were found."))
 
-seurat_list <- list()
+#Register num cores for doParallel loop
+registerDoParallel(numCores)
 
-for(i in 1:dim(toProcess)[1]){
+sc_start <- Sys.time()
+
+seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   print(paste("Importing data for row", i, "from sample", toProcess[i,"SampleName"]))
   
   if(toProcess[i,"DataType"] == "Seurat"){
@@ -112,14 +130,24 @@ for(i in 1:dim(toProcess)[1]){
   h5 <- SCTransform(h5, verbose = FALSE)
   
   ## Add seurat obj to list now
-  seurat_list <- c(seurat_list,h5)  
+  #seurat_list <- c(seurat_list,h5)  
   
   print(Sys.time() - mid_time)
 }  ## end processing of each sample.
 
+print("Total Time to run sample normalization:")
+print(Sys.time() - sc_start)
+
 print("Sample import and normalization completed...")
 print("Finding integration features...")
 ## Find integration features
+
+if(opt$parallel){
+  ## Set Future Plan for asynchronous execution
+  plan("multiprocess", workers = numCores)
+}
+
+plan()
 
 
 ## Select integration features
