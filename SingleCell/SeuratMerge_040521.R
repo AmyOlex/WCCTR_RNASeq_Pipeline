@@ -22,13 +22,14 @@
 ## SampleName, DataType (Seurat|10X), SamplePath, Condition
 
 library(Seurat)
-library(SeuratDisk)
+#library(SeuratDisk)
 library(stringr)
 library(DropletUtils)
 library(optparse)
 library(foreach)
 library(doParallel)
 library(future)
+
 
 #numCores <- detectCores()
 #registerDoParallel(numCores)
@@ -50,7 +51,10 @@ option_list = list(
               default = FALSE, action = "store_true", metavar="logical"),
   make_option(c("-n", "--numCores"), type="numeric", 
               help="Optional. Specify number of cores to use. Default is 1.",
-              default = 1, metavar="character")
+              default = 1, metavar="character"),
+  make_option(c("--saveH5"), type="logical", 
+              help="Optional. Save merged and annotated Seruat object as a .h5Seruat file. Default saves as a .RData file.",
+              default = FALSE, action = "store_true", metavar="logical")
 ); 
 
 opt_parser = OptionParser(option_list=option_list);
@@ -101,6 +105,7 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   
   if(toProcess[i,"DataType"] == "Seurat"){
     print("Loading Seurat h5 File...")
+    library(SeuratDisk)
     h5 <- LoadH5Seurat(toProcess[i,"SamplePath"])
   }
   else if(toProcess[i,"DataType"] == "10X"){
@@ -216,8 +221,16 @@ print(Sys.time() - mid_time)
 
 print("Saving Annotated Seurat File...")
 mid_time <- Sys.time()
+
 ### Save Seurat Object for future use
-SaveH5Seurat(seurat.integrated, filename=paste0(savedir, "_SeuratMerged_Annotated.h5Seurat"), overwrite = TRUE)
+if(opt$saveH5){
+  library(SeuratDisk)
+  SaveH5Seurat(seurat.integrated, filename=paste0(savedir, "_SeuratMerged_Annotated.h5Seurat"), overwrite = TRUE)
+}else{
+  save(seurat.integrated, file = paste0(savedir, "_SeuratMerged_Annotated.RData"), compress = TRUE)
+}
+
+
 print(Sys.time() - mid_time)
 
 print("Seurat merging completed in: ")
