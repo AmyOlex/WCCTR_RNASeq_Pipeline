@@ -169,7 +169,7 @@ print(Sys.time() - mid_time)
 ## Find the anchors and then integrate the data sets.
 mid_time <- Sys.time()
 print("Finding Anchors...")
-seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = "SCT", anchor.features = hfile_features, reference = 1, verbose = FALSE)
+seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = "SCT", anchor.features = hfile_features, reference = 5, verbose = FALSE)
 print(Sys.time() - mid_time)
 
 mid_time <- Sys.time()
