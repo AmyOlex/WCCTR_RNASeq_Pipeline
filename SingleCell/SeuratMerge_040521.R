@@ -46,6 +46,9 @@ option_list = list(
   make_option(c("-o", "--outdir"), type="character", 
               help="output directory for results report (must already exist). Default is current directory.",
               default = "./", metavar="character"),
+  make_option(c("-i", "--integrationNormalization"), type="character", 
+              help="Type of normalization to run prior to integration (SCT or LogNormalize). Default is SCT.",
+              default = "SCT", metavar="character"),
   make_option(c("--parallel"), type="logical", 
               help="Optional. Use paralellization for Merging and Integration (note, normalization of individual samples is always parallelized).",
               default = FALSE, action = "store_true", metavar="logical"),
@@ -132,9 +135,18 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   }
   
   mid_time <- Sys.time()
-  print("SCTransform...")
-  ## Normalize each dataset with SCT
-  h5 <- SCTransform(h5, verbose = FALSE)
+  
+  if(opt$integrationNormalization == "SCT"){
+    print("SCTransform...")
+    ## Normalize each dataset with SCT
+    h5 <- SCTransform(h5, verbose = FALSE)
+  }
+  else if(opt$integrationNormalization == "LogNormalize"){
+    print("LogNormalize...")
+    h5 <- NormalizeData(h5, normalization.method = "LogNormalize", verbose = FALSE)
+    h5 <- FindVariableFeatures(h5, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
+  }
+  
   
   ## Add seurat obj to list now
   #seurat_list <- c(seurat_list,h5)  
@@ -160,29 +172,38 @@ if(opt$parallel){
 plan()
 
 ## Select integration features
-mid_time <- Sys.time()
-hfile_features <- SelectIntegrationFeatures(object.list = seurat_list, nfeatures = 2000)
-options(future.globals.maxSize = 10000 * 1024^2)
-seurat_list <- PrepSCTIntegration(object.list = seurat_list, anchor.features = hfile_features, verbose = FALSE)
-print(Sys.time() - mid_time)
-
+if(opt$integrationNormalization == "SCT"){
+  mid_time <- Sys.time()
+  hfile_features <- SelectIntegrationFeatures(object.list = seurat_list, nfeatures = 2000)
+  options(future.globals.maxSize = 10000 * 1024^2)
+  seurat_list <- PrepSCTIntegration(object.list = seurat_list, anchor.features = hfile_features, verbose = FALSE)
+  print(Sys.time() - mid_time)
+} else{
+  hfile_features <- 2000
+}
 ## Find the anchors and then integrate the data sets.
 mid_time <- Sys.time()
 print("Finding Anchors...")
-seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = "SCT", anchor.features = hfile_features, reference = 5, verbose = FALSE)
+seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = opt$integrationNormalization, anchor.features = hfile_features, reference = 5, verbose = FALSE)
 print(Sys.time() - mid_time)
 
 mid_time <- Sys.time()
 print("Performing integration...")
-seurat.integrated <- IntegrateData(anchorset = seurat.anchors, normalization.method = "SCT", verbose = FALSE)
+seurat.integrated <- IntegrateData(anchorset = seurat.anchors, normalization.method = opt$integrationNormalization, verbose = FALSE)
 print(Sys.time() - mid_time)
 
 mid_time <- Sys.time()
 print("Saving to 10X...")
 ## Saving to 10X format:
-write10xCounts(x=seurat.integrated@assays$SCT@data, path=paste0(savedir, "_seuratSCTMerge_SCT.h5"), version="3")
-write10xCounts(x=seurat.integrated@assays$RNA@data, path=paste0(savedir, "_seuratSCTMerge_RNA.h5"), version="3")
-print(Sys.time() - mid_time)
+if(opt$integrationNormalization == "SCT"){
+  write10xCounts(x=seurat.integrated@assays$SCT@data, path=paste0(savedir, "_seuratSCTMerge_SCT.h5"), version="3")
+  write10xCounts(x=seurat.integrated@assays$RNA@data, path=paste0(savedir, "_seuratSCTMerge_RNA.h5"), version="3")
+  print(Sys.time() - mid_time)
+} else if(opt$integrationNormalization == "LogNormalize"){
+  #write10xCounts(x=seurat.integrated@assays$SCT@data, path=paste0(savedir, "_seuratSCTMerge_SCT.h5"), version="3")
+  write10xCounts(x=seurat.integrated@assays$RNA@data, path=paste0(savedir, "_seuratLogMerge_RNA.h5"), version="3")
+  print(Sys.time() - mid_time)
+}
 
 print("Adding Condition...")
 mid_time <- Sys.time()
@@ -198,8 +219,8 @@ for(i in dim(toProcess)[1]){
 seurat.integrated$Condition <- condition[,"Condition",drop=FALSE]
 
 ## Save Sample Annotations
-write.csv(idents, file=paste0(savedir, "_SeuratSCTMerge_LibraryID.csv"), quote = FALSE, row.names = FALSE)
-write.csv(condition, file=paste0(savedir, "SeuratSCTMerge_Condition.csv"), quote = FALSE, row.names = FALSE)
+write.csv(idents, file=paste0(savedir, "_Seurat", opt$integrationNormalization, "Merge_LibraryID.csv"), quote = FALSE, row.names = FALSE)
+write.csv(condition, file=paste0(savedir, "Seurat", opt$integrationNormalization, "Merge_Condition.csv"), quote = FALSE, row.names = FALSE)
 print(Sys.time() - mid_time)
 
 print("Running PCA, UMAP, tSNE...")
