@@ -228,6 +228,10 @@ print("Running PCA, UMAP, tSNE...")
 mid_time <- Sys.time()
 ### Create Visualizations
 DefaultAssay(seurat.integrated) <- "integrated"
+
+if(opt$integrationNormalization == "LogNormalize"){
+  seurat.integrated <- ScaleData(seurat.integrated, verbose = FALSE)
+}
 seurat.integrated <- RunPCA(seurat.integrated, verbose = FALSE)
 seurat.integrated <- RunUMAP(seurat.integrated, dims = 1:30)
 seurat.integrated <- RunTSNE(seurat.integrated, dims = 1:30)
