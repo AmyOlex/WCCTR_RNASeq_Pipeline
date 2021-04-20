@@ -34,6 +34,7 @@ library(future)
 #numCores <- detectCores()
 #registerDoParallel(numCores)
 
+options(future.globals.maxSize = 10000 * 1024^2)
 
 start_time <- Sys.time()
 
@@ -175,7 +176,7 @@ plan()
 if(opt$integrationNormalization == "SCT"){
   mid_time <- Sys.time()
   hfile_features <- SelectIntegrationFeatures(object.list = seurat_list, nfeatures = 2000)
-  options(future.globals.maxSize = 10000 * 1024^2)
+  
   seurat_list <- PrepSCTIntegration(object.list = seurat_list, anchor.features = hfile_features, verbose = FALSE)
   print(Sys.time() - mid_time)
 } else{
