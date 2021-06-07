@@ -21,6 +21,8 @@
 ## sample file format:
 ## SampleName, DataType (Seurat|10X), SamplePath, Condition
 
+## UPDATED 6/4/21 to also provide a simple merge option
+
 library(Seurat)
 #library(SeuratDisk)
 library(stringr)
@@ -40,7 +42,8 @@ if(localtest){
   savedir <- paste0(outDir,runID)
   numCores <- 2
   numAnchors <- 2000
-  integrationNormalization <- "LogNormalize"
+  normalization <- "LogNormalize"
+  mergeType <- "simple"
   parallel <- FALSE
   saveH5 <- TRUE
   options(future.globals.maxSize = 3000 * 1024^2)
@@ -63,9 +66,12 @@ option_list = list(
   make_option(c("-o", "--outdir"), type="character", 
               help="output directory for results report (must already exist). Default is current directory.",
               default = "./", metavar="character"),
-  make_option(c("-i", "--integrationNormalization"), type="character", 
-              help="Type of normalization to run prior to integration (SCT or LogNormalize). Default is SCT.",
+  make_option(c("-i", "--normalization"), type="character", 
+              help="Type of normalization to run prior to merging/integrating (SCT or LogNormalize). Default is SCT.",
               default = "SCT", metavar="character"),
+  make_option(c("-t", "--type"), type="character", 
+              help="Type of merging to do (simple or integration). Default is simple.",
+              default = "simple", metavar="character"),
   make_option(c("--parallel"), type="logical", 
               help="Optional. Use paralellization for Merging and Integration (note, normalization of individual samples is always parallelized).",
               default = FALSE, action = "store_true", metavar="logical"),
@@ -101,24 +107,26 @@ outDir <- opt$outdir
 savedir <- paste0(outDir,runID)
 numCores <- opt$numCores
 numAnchors <- opt$numAnchors
-integrationNormalization <- opt$integrationNormalization
+normalization <- opt$normalization
 parallel <- opt$parallel
 saveH5 <- opt$saveH5
+mergeType <- opt$type
 
 #### Ok, print out all the current running options as a summary.
 
 print("Summary of input options:\n")
 print(paste("Run Name:", runID))
 print(paste("ConfigFile:", inFile))
+print(paste("Merge Type:", mergeType))
 print(paste("Output Directory:", outDir))
 print(paste("Cores Specified:", numCores))
 print(paste("Number of Anchor Genes:", numAnchors))
-print(paste("Integrantion/Normalization Type:", integrationNormalization))
+print(paste("Integrantion/Normalization Type:", normalization))
 print(paste("Using Parallel: ", parallel))
 print(paste("Saving h5Seurat file:", saveH5))
 
 if(!parallel){
-  print("WARNING: Seurat integration functions will NOT be parallized.  Use the --parallel flag to parallelize Seurat integration functions.")
+  print("WARNING: Seurat merge and integration functions will NOT be parallized.  Use the --parallel flag to parallelize these functions.")
 }
 
 ############## PROCESS CONFIG FILE###########################
@@ -162,15 +170,16 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   
   mid_time <- Sys.time()
   
-  if(integrationNormalization == "SCT"){
+  if(normalization == "SCT"){
     print("SCTransform...")
     ## Normalize each dataset with SCT
     h5 <- SCTransform(h5, verbose = FALSE)
   }
-  else if(integrationNormalization == "LogNormalize"){
+  else if(normalization == "LogNormalize"){
     print("LogNormalize...")
     h5 <- NormalizeData(h5, normalization.method = "LogNormalize", verbose = FALSE)
     h5 <- FindVariableFeatures(h5, selection.method = "vst", nfeatures = numAnchors, verbose = FALSE)
+    h5 <- ScaleData(h5, verbose = FALSE)
   }
   
   
@@ -197,49 +206,61 @@ if(parallel){
 
 plan()
 
-## Select integration features
-if(integrationNormalization == "SCT"){
+
+###### Run Integration
+if(mergeType == "integration"){
+  print("Running Integration...")
+  ## Select integration features
+  if(normalization == "SCT"){
+    mid_time <- Sys.time()
+    hfile_features <- SelectIntegrationFeatures(object.list = seurat_list, nfeatures = numAnchors)
+    
+    seurat_list <- PrepSCTIntegration(object.list = seurat_list, anchor.features = hfile_features, verbose = FALSE)
+    print(Sys.time() - mid_time)
+  } else{
+    hfile_features <- numAnchors
+  }
+  ## Find the anchors and then integrate the data sets.
   mid_time <- Sys.time()
-  hfile_features <- SelectIntegrationFeatures(object.list = seurat_list, nfeatures = numAnchors)
+  print("Finding Anchors...")
+  #seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = integrationNormalization, anchor.features = hfile_features, reference = 5, verbose = FALSE)
+  seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = integrationNormalization, anchor.features = hfile_features, verbose = FALSE)
   
-  seurat_list <- PrepSCTIntegration(object.list = seurat_list, anchor.features = hfile_features, verbose = FALSE)
+  ## Save Anchor Feature File
+  write.csv(seurat.anchors@anchor.features, file=paste0(savedir, "_Seurat", normalization, "Merge_AnchorList.csv"), quote = FALSE, row.names = FALSE)
+  
   print(Sys.time() - mid_time)
-} else{
-  hfile_features <- numAnchors
+  
+  mid_time <- Sys.time()
+  print("Performing integration...")
+  seurat.merged <- IntegrateData(anchorset = seurat.anchors, normalization.method = normalization, verbose = FALSE)
+  print(Sys.time() - mid_time)
+  
+} else if(mergeType == "simple"){
+  print("Running simple merge...")
+  
+  seurat.merged <- merge(seurat_list[[1]], y = seurat_list[2:length(seurat_list)], merge.data=TRUE, project=runID)
+  seurat.merged <- FindVariableFeatures(seurat.merged, selection.method = "vst", nfeatures = numAnchors, verbose = FALSE)
 }
-## Find the anchors and then integrate the data sets.
-mid_time <- Sys.time()
-print("Finding Anchors...")
-#seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = integrationNormalization, anchor.features = hfile_features, reference = 5, verbose = FALSE)
-seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = integrationNormalization, anchor.features = hfile_features, verbose = FALSE)
 
-## Save Anchor Feature File
-write.csv(seurat.anchors@anchor.features, file=paste0(savedir, "_Seurat", integrationNormalization, "Merge_AnchorList.csv"), quote = FALSE, row.names = FALSE)
 
-print(Sys.time() - mid_time)
-
-mid_time <- Sys.time()
-print("Performing integration...")
-seurat.integrated <- IntegrateData(anchorset = seurat.anchors, normalization.method = integrationNormalization, verbose = FALSE)
-print(Sys.time() - mid_time)
 
 mid_time <- Sys.time()
 print("Saving to 10X...")
 ## Saving to 10X format:
-if(integrationNormalization == "SCT"){
-  write10xCounts(x=seurat.integrated@assays$SCT@data, path=paste0(savedir, "_seuratSCTMerge_SCT.h5"), version="3")
-  write10xCounts(x=seurat.integrated@assays$RNA@data, path=paste0(savedir, "_seuratSCTMerge_RNA.h5"), version="3")
+if(normalization == "SCT"){
+  write10xCounts(x=seurat.merged@assays$SCT@data, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_SCTdata.h5"), version="3")
+  write10xCounts(x=seurat.merged@assays$RNA@data, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata.h5"), version="3")
   print(Sys.time() - mid_time)
-} else if(integrationNormalization == "LogNormalize"){
-  #write10xCounts(x=seurat.integrated@assays$SCT@data, path=paste0(savedir, "_seuratSCTMerge_SCT.h5"), version="3")
-  write10xCounts(x=seurat.integrated@assays$RNA@data, path=paste0(savedir, "_seuratLogMerge_RNA.h5"), version="3")
+} else if(normalization == "LogNormalize"){
+  write10xCounts(x=seurat.merged@assays$RNA@data, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata.h5"), version="3")
   print(Sys.time() - mid_time)
 }
 
 print("Adding Condition...")
 mid_time <- Sys.time()
 ## Add Sample annotations
-idents <- data.frame(barcode = names(seurat.integrated@active.ident), LibraryID = seurat.integrated@active.ident)
+idents <- data.frame(barcode = names(seurat.merged@active.ident), LibraryID = seurat.merged@active.ident)
 condition <- idents
 names(condition) <- c("barcode","Condition")
 #condition$Condition <- as.character(condition$LibraryID)
@@ -248,37 +269,51 @@ for(i in dim(toProcess)[1]){
   condition[condition$Condition == toProcess[i,1],"Condition"] <- toProcess[i,"Condition"]
 }
 
-seurat.integrated$Condition <- condition[,"Condition",drop=FALSE]
+seurat.merged$Condition <- condition[,"Condition",drop=FALSE]
 
 ## Save Sample Annotations
-write.csv(idents, file=paste0(savedir, "_Seurat", integrationNormalization, "Merge_LibraryID.csv"), quote = FALSE, row.names = FALSE)
-write.csv(condition, file=paste0(savedir, "Seurat", integrationNormalization, "Merge_Condition.csv"), quote = FALSE, row.names = FALSE)
+write.csv(idents, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_LibraryID.csv"), quote = FALSE, row.names = FALSE)
+write.csv(condition, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_Condition.csv"), quote = FALSE, row.names = FALSE)
 print(Sys.time() - mid_time)
 
 print("Running PCA, UMAP, tSNE...")
 mid_time <- Sys.time()
 ### Create Visualizations
-DefaultAssay(seurat.integrated) <- "integrated"
-
-if(integrationNormalization == "LogNormalize"){
-  seurat.integrated <- ScaleData(seurat.integrated, verbose = FALSE)
+if(mergeType == "integrated"){
+  DefaultAssay(seurat.merged) <- "integrated"
+} else {
+  DefaultAssay(seurat.merged) <- "RNA"
 }
-seurat.integrated <- RunPCA(seurat.integrated, verbose = FALSE)
-seurat.integrated <- RunUMAP(seurat.integrated, dims = 1:30)
-seurat.integrated <- RunTSNE(seurat.integrated, dims = 1:30)
 
-write.csv(seurat.integrated@reductions$umap@cell.embeddings, file = paste0(savedir, "_UMAPCoordinates_30PCs_integratedData.csv"), quote = FALSE)
-write.csv(seurat.integrated@reductions$tsne@cell.embeddings, file = paste0(savedir, "_tSNECoordinates_30PCs_integratedData.csv"), quote = FALSE)
+
+if(normalization == "LogNormalize"){
+  seurat.merged <- ScaleData(seurat.merged, verbose = FALSE)
+}
+
+seurat.merged <- RunPCA(seurat.merged, verbose = FALSE)
+seurat.merged <- RunUMAP(seurat.merged, dims = 1:30)
+seurat.merged <- RunTSNE(seurat.merged, dims = 1:30)
+
+png(filename = "umap_test.png")
+DimPlot(seurat.merged, reduction = "pca", group.by="orig.ident")
+dev.off()
+
+png(filename = "tsne_test.png")
+DimPlot(seurat.merged, reduction = "tsne", group.by="orig.ident")
+dev.off()
+
+write.csv(seurat.merged@reductions$umap@cell.embeddings, file = paste0(savedir, "_UMAPCoordinates_30PCs_",mergeType,"Merge_",normalization,".csv"), quote = FALSE)
+write.csv(seurat.merged@reductions$tsne@cell.embeddings, file = paste0(savedir, "_tSNECoordinates_30PCs_",mergeType,"Merge_",normalization,".csv"), quote = FALSE)
 print(Sys.time() - mid_time)
 
 print("SNN Clustering...")
 mid_time <- Sys.time()
 ### Cluster the Data
-seurat.integrated <- FindNeighbors(seurat.integrated, reduction = "pca", dims = 1:30)
-seurat.integrated <- FindClusters(seurat.integrated, resolution = 0.4, graph.name = "integrated_snn")
+seurat.merged <- FindNeighbors(seurat.merged, reduction = "pca", dims = 1:30)
+seurat.merged <- FindClusters(seurat.merged, resolution = 0.4, graph.name = "merged_snn")
 
-clusters <- data.frame("barcode" = names(seurat.integrated$integrated_snn_res.0.4), "SNN_res0.4_Clusters" = seurat.integrated$integrated_snn_res.0.4)
-write.csv(clusters, file = paste0(savedir, "_SNN_Clusters_res0.4_integratedData.csv"), quote = FALSE)
+clusters <- data.frame("barcode" = names(seurat.merged$merged_snn_res.0.4), "SNN_res0.4_Clusters" = seurat.merged$merged_snn_res.0.4)
+write.csv(clusters, file = paste0(savedir, "_SNN_Clusters_res0.4_",mergeType,"MergedData.csv"), quote = FALSE)
 print(Sys.time() - mid_time)
 
 print("Saving Annotated Seurat File...")
@@ -287,9 +322,9 @@ mid_time <- Sys.time()
 ### Save Seurat Object for future use
 if(saveH5){
   library(SeuratDisk)
-  SaveH5Seurat(seurat.integrated, filename=paste0(savedir, "_SeuratMerged_Annotated.h5Seurat"), overwrite = TRUE)
+  SaveH5Seurat(seurat.merged, filename=paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated.h5Seurat"), overwrite = TRUE)
 }else{
-  save(seurat.integrated, file = paste0(savedir, "_SeuratMerged_Annotated.RData"), compress = TRUE)
+  save(seurat.merged, file = paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated.RData"), compress = TRUE)
 }
 
 
