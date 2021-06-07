@@ -309,7 +309,7 @@ print(Sys.time() - mid_time)
 print("SNN Clustering...")
 mid_time <- Sys.time()
 ### Cluster the Data
-seurat.merged <- FindNeighbors(seurat.merged, reduction = "pca", dims = 1:30)
+seurat.merged <- FindNeighbors(seurat.merged, reduction = "pca", dims = 1:30, graph.name = "merged_snn")
 seurat.merged <- FindClusters(seurat.merged, resolution = 0.4, graph.name = "merged_snn")
 
 clusters <- data.frame("barcode" = names(seurat.merged$merged_snn_res.0.4), "SNN_res0.4_Clusters" = seurat.merged$merged_snn_res.0.4)
