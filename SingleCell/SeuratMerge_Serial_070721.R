@@ -141,7 +141,9 @@ registerDoParallel(numCores)
 
 sc_start <- Sys.time()
 
-seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
+seurat_list <- list()
+
+for(i in 1:dim(toProcess)[1]){
   print(paste("Importing data for row", i, "from sample", toProcess[i,"SampleName"]))
   
   if(toProcess[i,"DataType"] == "Seurat"){
@@ -188,7 +190,7 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   
   print(Sys.time() - mid_time)
   
-  h5
+  seurat_list <- append(seurat_list, h5)
 }  ## end processing of each sample.
 
 print("Total Time to run sample normalization:")
