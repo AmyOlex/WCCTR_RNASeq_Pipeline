@@ -141,7 +141,7 @@ registerDoParallel(numCores)
 
 sc_start <- Sys.time()
 
-seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
+seurat_list <- foreach(i=1:dim(toProcess)[1]) { ##%dopar% {
   print(paste("Importing data for row", i, "from sample", toProcess[i,"SampleName"]))
   
   if(toProcess[i,"DataType"] == "Seurat"){
