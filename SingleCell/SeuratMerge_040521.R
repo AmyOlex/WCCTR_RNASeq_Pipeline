@@ -242,7 +242,7 @@ if(mergeType == "integration"){
   seurat.merged <- merge(seurat_list[[1]], y = seurat_list[2:length(seurat_list)], merge.data=TRUE, project=runID)
   seurat.merged <- FindVariableFeatures(seurat.merged, selection.method = "vst", nfeatures = numAnchors, verbose = FALSE)
 }
-
+#### End Integration
 
 
 mid_time <- Sys.time()
