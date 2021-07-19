@@ -223,8 +223,8 @@ if(mergeType == "integration"){
   ## Find the anchors and then integrate the data sets.
   mid_time <- Sys.time()
   print("Finding Anchors...")
-  #seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = integrationNormalization, anchor.features = hfile_features, reference = 5, verbose = FALSE)
-  seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = integrationNormalization, anchor.features = hfile_features, verbose = FALSE)
+  #seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = normalization, anchor.features = hfile_features, reference = 5, verbose = FALSE)
+  seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = normalization, anchor.features = hfile_features, verbose = FALSE)
   
   ## Save Anchor Feature File
   write.csv(seurat.anchors@anchor.features, file=paste0(savedir, "_Seurat", normalization, "Merge_AnchorList.csv"), quote = FALSE, row.names = FALSE)
