@@ -279,7 +279,7 @@ print(Sys.time() - mid_time)
 print("Running PCA, UMAP, tSNE...")
 mid_time <- Sys.time()
 ### Create Visualizations
-if(mergeType == "integrated"){
+if(mergeType == "integration"){
   DefaultAssay(seurat.merged) <- "integrated"
 } else {
   DefaultAssay(seurat.merged) <- "RNA"
