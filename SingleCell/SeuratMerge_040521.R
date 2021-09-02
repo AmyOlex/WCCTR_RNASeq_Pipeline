@@ -22,6 +22,7 @@
 ## SampleName, DataType (Seurat|10X), SamplePath, Condition
 
 ## UPDATED 6/4/21 to also provide a simple merge option
+## BUG Fixes 9/2/21 to output the conditions correctly
 
 library(Seurat)
 #library(SeuratDisk)
@@ -32,13 +33,14 @@ library(foreach)
 library(doParallel)
 library(future)
 
-localtest = FALSE
+localtest = TRUE
 ###########################################
 #### Local Testing Block
 if(localtest){
+  setwd("~/Desktop/CCTR_Git_Repos/WCCTR_RNASeq_Pipeline/SingleCell")
   runID <- "TEST"
-  inFile <- "./configtest.csv"
-  outDir <- "./"
+  inFile <- "./debug_files/configtest.csv"
+  outDir <- "./debug_files/"
   savedir <- paste0(outDir,runID)
   numCores <- 2
   numAnchors <- 2000
@@ -263,9 +265,9 @@ mid_time <- Sys.time()
 idents <- data.frame(barcode = names(seurat.merged@active.ident), LibraryID = seurat.merged@active.ident)
 condition <- idents
 names(condition) <- c("barcode","Condition")
-#condition$Condition <- as.character(condition$LibraryID)
+condition$Condition <- as.character(condition$Condition)
 
-for(i in dim(toProcess)[1]){
+for(i in 1:dim(toProcess)[1]){
   condition[condition$Condition == toProcess[i,1],"Condition"] <- toProcess[i,"Condition"]
 }
 
@@ -294,11 +296,15 @@ seurat.merged <- RunPCA(seurat.merged, verbose = FALSE)
 seurat.merged <- RunUMAP(seurat.merged, dims = 1:30)
 seurat.merged <- RunTSNE(seurat.merged, dims = 1:30)
 
-png(filename = "umap_test.png")
+png(filename = paste0(savedir, "_pca.png"), res=150, width = 1100, height = 800)
 DimPlot(seurat.merged, reduction = "pca", group.by="orig.ident")
 dev.off()
 
-png(filename = "tsne_test.png")
+png(filename = paste0(savedir, "_umap.png"), res=150, width = 1100, height = 800)
+DimPlot(seurat.merged, reduction = "umap", group.by="orig.ident")
+dev.off()
+
+png(filename = paste0(savedir, "_tsne.png"), res=150, width = 1100, height = 800)
 DimPlot(seurat.merged, reduction = "tsne", group.by="orig.ident")
 dev.off()
 
@@ -313,7 +319,7 @@ seurat.merged <- FindNeighbors(seurat.merged, reduction = "pca", dims = 1:30, gr
 seurat.merged <- FindClusters(seurat.merged, resolution = 0.4, graph.name = "merged_snn")
 
 clusters <- data.frame("barcode" = names(seurat.merged$merged_snn_res.0.4), "SNN_res0.4_Clusters" = seurat.merged$merged_snn_res.0.4)
-write.csv(clusters, file = paste0(savedir, "_SNN_Clusters_res0.4_",mergeType,"MergedData.csv"), quote = FALSE)
+write.csv(clusters, file = paste0(savedir, "_SNN_Clusters_res0.4_",mergeType,"MergedData.csv"), quote = FALSE, row.names = FALSE)
 print(Sys.time() - mid_time)
 
 print("Saving Annotated Seurat File...")
