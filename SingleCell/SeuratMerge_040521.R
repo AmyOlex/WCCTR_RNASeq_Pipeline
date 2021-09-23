@@ -22,6 +22,8 @@
 ## SampleName, DataType (Seurat|10X), SamplePath, Condition
 
 ## UPDATED 6/4/21 to also provide a simple merge option
+## BUG Fixes 9/2/21 to output the conditions correctly
+## UPDATED 9/2/21 to run PCA, UMAP, tSNE, and Clustering using a subset of features
 
 library(Seurat)
 #library(SeuratDisk)
@@ -32,13 +34,15 @@ library(foreach)
 library(doParallel)
 library(future)
 
-localtest = FALSE
+localtest = TRUE
 ###########################################
 #### Local Testing Block
 if(localtest){
+  setwd("~/Desktop/CCTR_Git_Repos/WCCTR_RNASeq_Pipeline/SingleCell")
   runID <- "TEST"
-  inFile <- "./configtest.csv"
-  outDir <- "./"
+  inFile <- "./debug_files/configtest.csv"
+  outDir <- "./debug_files/"
+  features <- "./debug_files/PI3K_features.txt"
   savedir <- paste0(outDir,runID)
   numCores <- 2
   numAnchors <- 2000
@@ -72,6 +76,9 @@ option_list = list(
   make_option(c("-t", "--type"), type="character", 
               help="Type of merging to do (simple or integration). Default is simple.",
               default = "simple", metavar="character"),
+  make_option(c("-f", "--features"), type="character", 
+              help="Optional. A list of features to use for the PCA, UMAP, tSNE, and Clustering.", 
+              default = "", metavar="character"),
   make_option(c("--parallel"), type="logical", 
               help="Optional. Use paralellization for Merging and Integration (note, normalization of individual samples is always parallelized).",
               default = FALSE, action = "store_true", metavar="logical"),
@@ -111,6 +118,7 @@ normalization <- opt$normalization
 parallel <- opt$parallel
 saveH5 <- opt$saveH5
 mergeType <- opt$type
+features <- opt$features
 
 #### Ok, print out all the current running options as a summary.
 
@@ -263,9 +271,9 @@ mid_time <- Sys.time()
 idents <- data.frame(barcode = names(seurat.merged@active.ident), LibraryID = seurat.merged@active.ident)
 condition <- idents
 names(condition) <- c("barcode","Condition")
-#condition$Condition <- as.character(condition$LibraryID)
+condition$Condition <- as.character(condition$Condition)
 
-for(i in dim(toProcess)[1]){
+for(i in 1:dim(toProcess)[1]){
   condition[condition$Condition == toProcess[i,1],"Condition"] <- toProcess[i,"Condition"]
 }
 
@@ -290,15 +298,40 @@ if(normalization == "LogNormalize"){
   seurat.merged <- ScaleData(seurat.merged, verbose = FALSE)
 }
 
-seurat.merged <- RunPCA(seurat.merged, verbose = FALSE)
-seurat.merged <- RunUMAP(seurat.merged, dims = 1:30)
-seurat.merged <- RunTSNE(seurat.merged, dims = 1:30)
+## Use features for PCA if provided.
+if(features != ""){
+  print("Subsetting PCA, UMAP, tSNE, and clustering on input features.")
+  
+  ## debugging issues with using a small gene list.
+  #rna_assay <- seurat.merged@assays$RNA
+  #rna_assay <- rna_assay[row.names(rna_assay) %in% my_feats,]
+  
+  #which(colSums(rna_assay) == 0)
+  #rna_assay <- rna_assay[,-12]
+  #rna_assay <- rna_assay[,-44]
+  #Heatmap(cor(rna_assay))
+  #std <- colSds(rna_assay)
+  #rna_assay2 <- rna_assay[,which(std >= quantile(std)[3])]
+  #colnames(rna_assay2)
 
-png(filename = "umap_test.png")
+  my_feats <- read.delim(features,header=FALSE)[,1]
+  seurat.merged <- RunPCA(seurat.merged, verbose = FALSE, features = my_feats, npcs = 50, approx=FALSE)
+} else {
+  seurat.merged <- RunPCA(seurat.merged, verbose = FALSE)
+}
+
+seurat.merged <- RunUMAP(seurat.merged, dims = 1:min(30,length(seurat.merged@reductions$pca)))
+seurat.merged <- RunTSNE(seurat.merged, dims = 1:min(30,length(seurat.merged@reductions$pca)), check_duplicates = FALSE)
+
+png(filename = paste0(savedir, "_pca.png"), res=150, width = 1100, height = 800)
 DimPlot(seurat.merged, reduction = "pca", group.by="orig.ident")
 dev.off()
 
-png(filename = "tsne_test.png")
+png(filename = paste0(savedir, "_umap.png"), res=150, width = 1100, height = 800)
+DimPlot(seurat.merged, reduction = "umap", group.by="orig.ident")
+dev.off()
+
+png(filename = paste0(savedir, "_tsne.png"), res=150, width = 1100, height = 800)
 DimPlot(seurat.merged, reduction = "tsne", group.by="orig.ident")
 dev.off()
 
@@ -309,11 +342,13 @@ print(Sys.time() - mid_time)
 print("SNN Clustering...")
 mid_time <- Sys.time()
 ### Cluster the Data
-seurat.merged <- FindNeighbors(seurat.merged, reduction = "pca", dims = 1:30, graph.name = "merged_snn")
+seurat.merged <- FindNeighbors(seurat.merged, reduction = "pca", dims = 1:min(30,length(seurat.merged@reductions$pca)), graph.name = "merged_snn")
 seurat.merged <- FindClusters(seurat.merged, resolution = 0.4, graph.name = "merged_snn")
 
+DimPlot(seurat.merged, reduction = "umap", group.by="merged_snn_res.0.4")
+
 clusters <- data.frame("barcode" = names(seurat.merged$merged_snn_res.0.4), "SNN_res0.4_Clusters" = seurat.merged$merged_snn_res.0.4)
-write.csv(clusters, file = paste0(savedir, "_SNN_Clusters_res0.4_",mergeType,"MergedData.csv"), quote = FALSE)
+write.csv(clusters, file = paste0(savedir, "_SNN_Clusters_res0.4_",mergeType,"MergedData.csv"), quote = FALSE, row.names = FALSE)
 print(Sys.time() - mid_time)
 
 print("Saving Annotated Seurat File...")
