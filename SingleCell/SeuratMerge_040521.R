@@ -24,7 +24,7 @@
 ## UPDATED 6/4/21 to also provide a simple merge option
 ## BUG Fixes 9/2/21 to output the conditions correctly
 ## UPDATED 9/2/21 to run PCA, UMAP, tSNE, and Clustering using a subset of features
-## UPDATED 10/14/21 to fix the feature subset issue.
+## UPDATED 10/14/21 to fix the feature subset issue and add in CellCycle Annotations.
 
 library(Seurat)
 #library(SeuratDisk)
@@ -370,6 +370,20 @@ if(features != ""){
 }
 
 print(Sys.time() - mid_time)
+
+####
+## Cell Cycle Scoreing
+#####
+library("biomaRt")
+s.genes <- cc.genes.updated.2019$s.genes
+g2m.genes <- cc.genes.updated.2019$g2m.genes
+
+seurat.merged <- ScaleData(seurat.merged, features = rownames(seurat.merged))
+seurat.merged <- CellCycleScoring(seurat.merged, g2m.features = g2m.genes, s.features = s.genes, set.ident = TRUE)
+
+cc <- data.frame("barcode" = names(seurat.merged$Phase), "CellCyclePhase" = seurat.merged$Phase)
+write.csv(cc, paste0(savedir, "_CellCyclePhase_",mergeType,"MergedData.csv"), quote=FALSE, row.names = FALSE)
+DimPlot(seurat.merged, group.by = "Phase", reduction = "umap", label=FALSE)
 
 print("Saving Annotated Seurat File...")
 mid_time <- Sys.time()
