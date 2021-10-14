@@ -24,6 +24,7 @@
 ## UPDATED 6/4/21 to also provide a simple merge option
 ## BUG Fixes 9/2/21 to output the conditions correctly
 ## UPDATED 9/2/21 to run PCA, UMAP, tSNE, and Clustering using a subset of features
+## UPDATED 10/14/21 to fix the feature subset issue.
 
 library(Seurat)
 #library(SeuratDisk)
@@ -34,7 +35,7 @@ library(foreach)
 library(doParallel)
 library(future)
 
-localtest = TRUE
+localtest = FALSE
 ###########################################
 #### Local Testing Block
 if(localtest){
@@ -315,6 +316,7 @@ if(features != ""){
   #colnames(rna_assay2)
 
   my_feats <- read.delim(features,header=FALSE)[,1]
+  seurat.merged <- ScaleData(seurat.merged, verbose = FALSE, features = my_feats)
   seurat.merged <- RunPCA(seurat.merged, verbose = FALSE, features = my_feats, npcs = 50, approx=FALSE)
 } else {
   seurat.merged <- RunPCA(seurat.merged, verbose = FALSE)
@@ -335,20 +337,38 @@ png(filename = paste0(savedir, "_tsne.png"), res=150, width = 1100, height = 800
 DimPlot(seurat.merged, reduction = "tsne", group.by="orig.ident")
 dev.off()
 
-write.csv(seurat.merged@reductions$umap@cell.embeddings, file = paste0(savedir, "_UMAPCoordinates_30PCs_",mergeType,"Merge_",normalization,".csv"), quote = FALSE)
-write.csv(seurat.merged@reductions$tsne@cell.embeddings, file = paste0(savedir, "_tSNECoordinates_30PCs_",mergeType,"Merge_",normalization,".csv"), quote = FALSE)
-print(Sys.time() - mid_time)
+if(features != ""){
+  write.csv(seurat.merged@reductions$umap@cell.embeddings, file = paste0(savedir, "_UMAPCoordinates_30PCs_",mergeType,"Merge_",normalization,".csv"), quote = FALSE)
+  write.csv(seurat.merged@reductions$tsne@cell.embeddings, file = paste0(savedir, "_tSNECoordinates_30PCs_",mergeType,"Merge_",normalization,".csv"), quote = FALSE)
+  print(Sys.time() - mid_time)
+} else {
+  write.csv(seurat.merged@reductions$umap@cell.embeddings, file = paste0(savedir, "_UMAPCoordinates_30PCs_",mergeType,"Merge_",normalization,"_wFeatureSubset.csv"), quote = FALSE)
+  write.csv(seurat.merged@reductions$tsne@cell.embeddings, file = paste0(savedir, "_tSNECoordinates_30PCs_",mergeType,"Merge_",normalization,"_wFeatureSubset.csv"), quote = FALSE)
+  print(Sys.time() - mid_time)
+}
 
 print("SNN Clustering...")
 mid_time <- Sys.time()
 ### Cluster the Data
 seurat.merged <- FindNeighbors(seurat.merged, reduction = "pca", dims = 1:min(30,length(seurat.merged@reductions$pca)), graph.name = "merged_snn")
 seurat.merged <- FindClusters(seurat.merged, resolution = 0.4, graph.name = "merged_snn")
+seurat.merged <- FindClusters(seurat.merged, resolution = 0.6, graph.name = "merged_snn")
 
+DimPlot(seurat.merged, reduction = "umap", group.by="merged_snn_res.0.6")
 DimPlot(seurat.merged, reduction = "umap", group.by="merged_snn_res.0.4")
 
-clusters <- data.frame("barcode" = names(seurat.merged$merged_snn_res.0.4), "SNN_res0.4_Clusters" = seurat.merged$merged_snn_res.0.4)
-write.csv(clusters, file = paste0(savedir, "_SNN_Clusters_res0.4_",mergeType,"MergedData.csv"), quote = FALSE, row.names = FALSE)
+
+clusters1 <- data.frame("barcode" = names(seurat.merged$merged_snn_res.0.4), "SNN_res0.4_Clusters" = seurat.merged$merged_snn_res.0.4)
+clusters2 <- data.frame("barcode" = names(seurat.merged$merged_snn_res.0.6), "SNN_res0.6_Clusters" = seurat.merged$merged_snn_res.0.6)
+
+if(features != ""){
+  write.csv(clusters1, file = paste0(savedir, "_SNN_Clusters_res0.4_",mergeType,"MergedData_wFeatureSubset.csv"), quote = FALSE, row.names = FALSE)
+  write.csv(clusters2, file = paste0(savedir, "_SNN_Clusters_res0.6_",mergeType,"MergedData_wFeatureSubset.csv"), quote = FALSE, row.names = FALSE)
+} else {
+  write.csv(clusters1, file = paste0(savedir, "_SNN_Clusters_res0.4_",mergeType,"MergedData.csv"), quote = FALSE, row.names = FALSE)
+  write.csv(clusters2, file = paste0(savedir, "_SNN_Clusters_res0.6_",mergeType,"MergedData.csv"), quote = FALSE, row.names = FALSE)
+}
+
 print(Sys.time() - mid_time)
 
 print("Saving Annotated Seurat File...")
@@ -357,9 +377,17 @@ mid_time <- Sys.time()
 ### Save Seurat Object for future use
 if(saveH5){
   library(SeuratDisk)
-  SaveH5Seurat(seurat.merged, filename=paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated.h5Seurat"), overwrite = TRUE)
+  if(features != ""){
+    SaveH5Seurat(seurat.merged, filename=paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated_wFeatureSubset.h5Seurat"), overwrite = TRUE)
+  } else{
+    SaveH5Seurat(seurat.merged, filename=paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated.h5Seurat"), overwrite = TRUE)
+  }
 }else{
-  save(seurat.merged, file = paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated.RData"), compress = TRUE)
+  if(features != ""){
+    save(seurat.merged, file = paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated_wFeatureSubset.RData"), compress = TRUE)
+  } else {
+    save(seurat.merged, file = paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated.RData"), compress = TRUE)
+  }
 }
 
 
