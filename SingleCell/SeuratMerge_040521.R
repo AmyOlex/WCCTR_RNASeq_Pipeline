@@ -374,35 +374,35 @@ print(Sys.time() - mid_time)
 ####
 ## Cell Cycle Scoreing
 #####
-#library("biomaRt")
-#s.genes <- cc.genes.updated.2019$s.genes
-#g2m.genes <- cc.genes.updated.2019$g2m.genes
+library("biomaRt")
+s.genes <- cc.genes.updated.2019$s.genes
+g2m.genes <- cc.genes.updated.2019$g2m.genes
 
-#seurat.merged <- ScaleData(seurat.merged, features = rownames(seurat.merged))
-#seurat.merged <- CellCycleScoring(seurat.merged, g2m.features = g2m.genes, s.features = s.genes, set.ident = TRUE)
+seurat.merged <- ScaleData(seurat.merged, features = rownames(seurat.merged))
+seurat.merged <- CellCycleScoring(seurat.merged, g2m.features = g2m.genes, s.features = s.genes, set.ident = TRUE)
 
-#cc <- data.frame("barcode" = names(seurat.merged$Phase), "CellCyclePhase" = seurat.merged$Phase)
-#write.csv(cc, paste0(savedir, "_CellCyclePhase_",mergeType,"MergedData.csv"), quote=FALSE, row.names = FALSE)
-#DimPlot(seurat.merged, group.by = "Phase", reduction = "umap", label=FALSE)
+cc <- data.frame("barcode" = names(seurat.merged$Phase), "CellCyclePhase" = seurat.merged$Phase)
+write.csv(cc, paste0(savedir, "_CellCyclePhase_",mergeType,"MergedData.csv"), quote=FALSE, row.names = FALSE)
+DimPlot(seurat.merged, group.by = "Phase", reduction = "umap", label=FALSE)
 
-#print("Saving Annotated Seurat File...")
-#mid_time <- Sys.time()
+print("Saving Annotated Seurat File...")
+mid_time <- Sys.time()
 
-### Save Seurat Object for future use
-#if(saveH5){
-#  library(SeuratDisk)
-#  if(features != ""){
-#    SaveH5Seurat(seurat.merged, filename=paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated_wFeatureSubset.h5Seurat"), overwrite = TRUE)
-#  } else{
-#    SaveH5Seurat(seurat.merged, filename=paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated.h5Seurat"), overwrite = TRUE)
-#  }
-#}else{
-#  if(features != ""){
-#    save(seurat.merged, file = paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated_wFeatureSubset.RData"), compress = TRUE)
-#  } else {
-#    save(seurat.merged, file = paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated.RData"), compress = TRUE)
-#  }
-#}
+## Save Seurat Object for future use
+if(saveH5){
+  library(SeuratDisk)
+  if(features != ""){
+    SaveH5Seurat(seurat.merged, filename=paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated_wFeatureSubset.h5Seurat"), overwrite = TRUE)
+  } else{
+    SaveH5Seurat(seurat.merged, filename=paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated.h5Seurat"), overwrite = TRUE)
+  }
+}else{
+  if(features != ""){
+    save(seurat.merged, file = paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated_wFeatureSubset.RData"), compress = TRUE)
+  } else {
+    save(seurat.merged, file = paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated.RData"), compress = TRUE)
+  }
+}
 
 
 print(Sys.time() - mid_time)
