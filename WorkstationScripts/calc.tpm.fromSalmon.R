@@ -26,7 +26,7 @@ calc.tpm.fromSalmon <- function(data, sample_names){
     
     ##Now divide all values in each column by the scaling factor
     TPM <- t(t(RPK)/scale_factor)
-    colnames(TPM) <- sample_names
-    row.names(TPM) <- row.names(data$counts)
+    colnames(TPM) <- colnames(data$counts)
+    row.names(TPM) <- rownames(data$counts)
     return(as.data.frame(TPM))
 }
