@@ -64,16 +64,17 @@ OUTDIR=$DIR
 
 mkdir -p $OUTDIR
 
+cd $OUTDIR
+
 echo "Starting Salmon on "`date`
 
 cat $INPUT | while read file
 do
 	echo "Starting read counting of $file on "`date` 
-	prefix=$(basename $file .Aligned.toTranscriptome.out.mouse.bam)
-	salmon quant -t ~/refGenomes/merged_GDC_GRCh38_GRCm38_XMLV.transcripts.fa -l IU -a $file -o $OUTDIR/$prefix
+	prefix=$(basename $file .Aligned.toTranscriptome.out.bam)
+	/vcu_gpfs2/home/mccbnfolab/src/salmon-1.5.2_linux_x86_64/bin/salmon quant -t /vcu_gpfs2/home/mccbnfolab/ref_genomes/human/GRCh38/GRCh38_latest_rna.fna -l IU -a $file -o $OUTDIR/$prefix
 	echo $prefix
 	echo "Finished read counting of $file on "`date`
-	mv $OUTDIR/$prefix/quant.sf $OUTDIR/$prefix/$prefix.mouse.quant.sf
 done
 
 echo "Completed Salmon on "`date`
