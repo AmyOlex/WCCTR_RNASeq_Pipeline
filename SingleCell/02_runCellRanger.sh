@@ -91,6 +91,9 @@ do
 	elif [[ "$ref" == "hg19" ]]
         then
                 reference="/data/refGenomes/CellRanger/refdata-cellranger-hg19-3.0.0"
+	elif [[ "$ref" == "firefly" ]]
+	then
+		reference="/vcu_gpfs2/home/mccbnfolab/ref_genomes/firefly/Ppyr1.3/refdata-cellranger-firefly_Ppyr1.3"
 	else
 		echo "ERROR: Reference Genome Not Found"; usage; exit 1
 	fi
