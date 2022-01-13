@@ -286,7 +286,7 @@ seurat.merged <- CellCycleScoring(seurat.merged, g2m.features = g2m.genes, s.fea
 
 cc <- data.frame("barcode" = names(seurat.merged$Phase), "CellCyclePhase" = seurat.merged$Phase)
 write.csv(cc, paste0(savedir, "_CellCyclePhase_",mergeType,"MergedData.csv"), quote=FALSE, row.names = FALSE)
-DimPlot(seurat.merged, group.by = "Phase", reduction = "umap", label=FALSE)
+#DimPlot(seurat.merged, group.by = "Phase", reduction = "umap", label=FALSE)
 
 if(regressCC){
   print("Regressing out CC...")
