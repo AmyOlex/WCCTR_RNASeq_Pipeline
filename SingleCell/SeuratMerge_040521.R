@@ -291,7 +291,7 @@ write.csv(cc, paste0(savedir, "_CellCyclePhase_",mergeType,"MergedData.csv"), qu
 if(regressCC){
   print("Regressing out CC...")
   seurat.merged$CC.Difference <- seurat.merged$S.Score - seurat.merged$G2M.Score
-  seurat.merged <- ScaleData(seurat.merged, vars.to.regress = "CC.Difference", features = rownames(seurat.merged))
+  seurat.merged <- ScaleData(seurat.merged, vars.to.regress = c("S.Score", "G2M.Score"), features = rownames(seurat.merged))
 }
 
 mid_time <- Sys.time()
