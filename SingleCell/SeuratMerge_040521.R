@@ -34,6 +34,7 @@ library(optparse)
 library(foreach)
 library(doParallel)
 library(future)
+library("biomaRt")
 
 localtest = FALSE
 ###########################################
@@ -91,6 +92,9 @@ option_list = list(
               default = 2000, metavar="character"),
   make_option(c("--saveH5"), type="logical", 
               help="Optional. Save merged and annotated Seruat object as a .h5Seruat file. Default saves as a .RData file.",
+              default = FALSE, action = "store_true", metavar="logical"),
+  make_option(c("--regressCellCycle"), type="logical", 
+              help="Optional. Regress out the cell cycle difference between S and G2M scores during normalization (Default = FALSE).",
               default = FALSE, action = "store_true", metavar="logical")
 ); 
 
@@ -120,19 +124,26 @@ parallel <- opt$parallel
 saveH5 <- opt$saveH5
 mergeType <- opt$type
 features <- opt$features
+regressCC <- opt$regressCellCycle
+
+
+s.genes <- cc.genes.updated.2019$s.genes
+g2m.genes <- cc.genes.updated.2019$g2m.genes
+cc.genes <- union(s.genes, g2m.genes)
 
 #### Ok, print out all the current running options as a summary.
 
 print("Summary of input options:\n")
-print(paste("Run Name:", runID))
-print(paste("ConfigFile:", inFile))
-print(paste("Merge Type:", mergeType))
-print(paste("Output Directory:", outDir))
-print(paste("Cores Specified:", numCores))
-print(paste("Number of Anchor Genes:", numAnchors))
-print(paste("Integrantion/Normalization Type:", normalization))
+print(paste("Run Name: ", runID))
+print(paste("ConfigFile: ", inFile))
+print(paste("Merge Type: ", mergeType))
+print(paste("Output Directory:" , outDir))
+print(paste("Cores Specified: ", numCores))
+print(paste("Number of Anchor Genes: ", numAnchors))
+print(paste("Integrantion/Normalization Type: ", normalization))
 print(paste("Using Parallel: ", parallel))
-print(paste("Saving h5Seurat file:", saveH5))
+print(paste("Saving h5Seurat file: ", saveH5))
+print(paste("Regressing out S-G2M cell cycle score: ", regressCC))
 
 if(!parallel){
   print("WARNING: Seurat merge and integration functions will NOT be parallized.  Use the --parallel flag to parallelize these functions.")
@@ -189,6 +200,7 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
     h5 <- NormalizeData(h5, normalization.method = "LogNormalize", verbose = FALSE)
     h5 <- FindVariableFeatures(h5, selection.method = "vst", nfeatures = numAnchors, verbose = FALSE)
     h5 <- ScaleData(h5, verbose = FALSE)
+    
   }
   
   
@@ -235,14 +247,25 @@ if(mergeType == "integration"){
   #seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = normalization, anchor.features = hfile_features, reference = 5, verbose = FALSE)
   seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = normalization, anchor.features = hfile_features, verbose = FALSE)
   
+
+  if(regressCC){
+    ## Ensure cell cycle genes are included in the list
+    genes.to.integrate <- union(seurat.anchors@anchor.features, cc.genes)
+  }
+  else{
+    genes.to.integrate <- seurat.anchors@anchor.features
+  }
+  
   ## Save Anchor Feature File
-  write.csv(seurat.anchors@anchor.features, file=paste0(savedir, "_Seurat", normalization, "Merge_AnchorList.csv"), quote = FALSE, row.names = FALSE)
+  write.csv(genes.to.integrate, file=paste0(savedir, "_Seurat", normalization, "Merge_AnchorList.csv"), quote = FALSE, row.names = FALSE)
+  
+  
   
   print(Sys.time() - mid_time)
   
   mid_time <- Sys.time()
   print("Performing integration...")
-  seurat.merged <- IntegrateData(anchorset = seurat.anchors, normalization.method = normalization, verbose = FALSE)
+  seurat.merged <- IntegrateData(anchorset = seurat.anchors, features.to.integrate = genes.to.integrate, normalization.method = normalization, verbose = FALSE)
   print(Sys.time() - mid_time)
   
 } else if(mergeType == "simple"){
@@ -253,6 +276,23 @@ if(mergeType == "integration"){
 }
 #### End Integration
 
+
+####
+## Cell Cycle Scoreing
+#####
+
+seurat.merged <- ScaleData(seurat.merged, features = rownames(seurat.merged))
+seurat.merged <- CellCycleScoring(seurat.merged, g2m.features = g2m.genes, s.features = s.genes, set.ident = TRUE)
+
+cc <- data.frame("barcode" = names(seurat.merged$Phase), "CellCyclePhase" = seurat.merged$Phase)
+write.csv(cc, paste0(savedir, "_CellCyclePhase_",mergeType,"MergedData.csv"), quote=FALSE, row.names = FALSE)
+DimPlot(seurat.merged, group.by = "Phase", reduction = "umap", label=FALSE)
+
+if(regressCC){
+  print("Regressing out CC...")
+  seurat.merged$CC.Difference <- seurat.merged$S.Score - seurat.merged$G2M.Score
+  seurat.merged <- ScaleData(seurat.merged, vars.to.regress = "CC.Difference", features = rownames(seurat.merged))
+}
 
 mid_time <- Sys.time()
 print("Saving to 10X...")
@@ -295,9 +335,9 @@ if(mergeType == "integration"){
 }
 
 
-if(normalization == "LogNormalize"){
-  seurat.merged <- ScaleData(seurat.merged, verbose = FALSE)
-}
+#if(normalization == "LogNormalize"){
+#  seurat.merged <- ScaleData(seurat.merged, verbose = FALSE)
+#}
 
 ## Use features for PCA if provided.
 if(features != ""){
@@ -338,12 +378,12 @@ DimPlot(seurat.merged, reduction = "tsne", group.by="orig.ident")
 dev.off()
 
 if(features != ""){
-  write.csv(seurat.merged@reductions$umap@cell.embeddings, file = paste0(savedir, "_UMAPCoordinates_30PCs_",mergeType,"Merge_",normalization,".csv"), quote = FALSE)
-  write.csv(seurat.merged@reductions$tsne@cell.embeddings, file = paste0(savedir, "_tSNECoordinates_30PCs_",mergeType,"Merge_",normalization,".csv"), quote = FALSE)
-  print(Sys.time() - mid_time)
-} else {
   write.csv(seurat.merged@reductions$umap@cell.embeddings, file = paste0(savedir, "_UMAPCoordinates_30PCs_",mergeType,"Merge_",normalization,"_wFeatureSubset.csv"), quote = FALSE)
   write.csv(seurat.merged@reductions$tsne@cell.embeddings, file = paste0(savedir, "_tSNECoordinates_30PCs_",mergeType,"Merge_",normalization,"_wFeatureSubset.csv"), quote = FALSE)
+  print(Sys.time() - mid_time)
+} else {
+  write.csv(seurat.merged@reductions$umap@cell.embeddings, file = paste0(savedir, "_UMAPCoordinates_30PCs_",mergeType,"Merge_",normalization,".csv"), quote = FALSE)
+  write.csv(seurat.merged@reductions$tsne@cell.embeddings, file = paste0(savedir, "_tSNECoordinates_30PCs_",mergeType,"Merge_",normalization,".csv"), quote = FALSE)
   print(Sys.time() - mid_time)
 }
 
@@ -371,19 +411,6 @@ if(features != ""){
 
 print(Sys.time() - mid_time)
 
-####
-## Cell Cycle Scoreing
-#####
-library("biomaRt")
-s.genes <- cc.genes.updated.2019$s.genes
-g2m.genes <- cc.genes.updated.2019$g2m.genes
-
-seurat.merged <- ScaleData(seurat.merged, features = rownames(seurat.merged))
-seurat.merged <- CellCycleScoring(seurat.merged, g2m.features = g2m.genes, s.features = s.genes, set.ident = TRUE)
-
-cc <- data.frame("barcode" = names(seurat.merged$Phase), "CellCyclePhase" = seurat.merged$Phase)
-write.csv(cc, paste0(savedir, "_CellCyclePhase_",mergeType,"MergedData.csv"), quote=FALSE, row.names = FALSE)
-DimPlot(seurat.merged, group.by = "Phase", reduction = "umap", label=FALSE)
 
 print("Saving Annotated Seurat File...")
 mid_time <- Sys.time()
