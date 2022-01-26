@@ -320,9 +320,26 @@ for(i in 1:dim(toProcess)[1]){
 
 seurat.merged$Condition <- condition[,"Condition",drop=FALSE]
 
+print("Adding TumorType...")
+mid_time <- Sys.time()
+## Add Sample annotations
+idents <- data.frame(barcode = names(seurat.merged@active.ident), LibraryID = seurat.merged@active.ident)
+ttype <- idents
+names(ttype) <- c("barcode","TumorType")
+ttype$TumorType <- as.character(ttype$TumorType)
+
+for(i in 1:dim(toProcess)[1]){
+  ttype[ttype$TumorType == toProcess[i,1],"TumorType"] <- toProcess[i,"TumorType"]
+}
+
+seurat.merged$TumorType <- ttype[,"TumorType",drop=FALSE]
+
+
 ## Save Sample Annotations
 write.csv(idents, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_LibraryID.csv"), quote = FALSE, row.names = FALSE)
 write.csv(condition, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_Condition.csv"), quote = FALSE, row.names = FALSE)
+write.csv(ttype, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_TumorType.csv"), quote = FALSE, row.names = FALSE)
+
 print(Sys.time() - mid_time)
 
 print("Running PCA, UMAP, tSNE...")
