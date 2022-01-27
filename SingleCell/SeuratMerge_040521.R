@@ -153,7 +153,13 @@ if(!parallel){
 # Read in the provided config file and loop for each row.
 toProcess = read.table(inFile, header=TRUE, sep=",", stringsAsFactors = FALSE)
 #toProcess = read.table("/Users/alolex/Desktop/CCTR_Git_Repos/PBos_scRNASeq/MergeScriptTesting/configtest.csv", header=TRUE, sep=",", stringsAsFactors = FALSE)
+
+print(paste(names(toProcess)))
+
 toProcess$SeuratObj <- ""
+
+print(paste(names(toProcess)))
+
 print(paste(dim(toProcess)[1], " rows were found."))
 
 #Register num cores for doParallel loop
