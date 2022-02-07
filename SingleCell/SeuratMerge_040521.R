@@ -313,6 +313,7 @@ if(normalization == "SCT"){
 }
 
 print("Adding Condition...")
+Idents(seurat.merged) <- seurat.merged@meta.data$orig.ident
 mid_time <- Sys.time()
 ## Add Sample annotations
 idents <- data.frame(barcode = names(seurat.merged@active.ident), LibraryID = seurat.merged@active.ident)
