@@ -44,13 +44,13 @@ library(doParallel)
 library(future)
 library("biomaRt")
 
-localtest = FALSE
+localtest = TRUE
 ###########################################
 #### Local Testing Block
 if(localtest){
-  setwd("~/Desktop/CCTR_Git_Repos/WCCTR_RNASeq_Pipeline/SingleCell")
+  setwd("/Users/alolex/Desktop/HersheyFiles/")
   runID <- "TEST"
-  inFile <- "./debug_files/configtest.csv"
+  inFile <- "/Users/alolex/Desktop/HersheyFiles/SeuratSimpleMerge_TEST_GRCh38_100322.csv"
   outDir <- "./debug_files/"
   features <- "./debug_files/PI3K_features.txt"
   savedir <- paste0(outDir,runID)
@@ -59,7 +59,9 @@ if(localtest){
   normalization <- "LogNormalize"
   mergeType <- "simple"
   parallel <- FALSE
+  filtercells <- TRUE
   saveH5 <- TRUE
+  regressCC <- FALSE
   options(future.globals.maxSize = 3000 * 1024^2)
 }
 ###########################################
@@ -204,8 +206,8 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   if(filtercells){
     print("Loading list of cell barcodes to keep...")
     cells2keep <- read.delim(file=toProcess[i,"Cells2Keep"], header=TRUE) ##not sure if there is a header, check the file.
-    print("Filtering cells to keep using file: " + toProcess[i,"Cells2Keep"])
-    h5 <- subset(h5, cells = cells2keep)
+    print(paste("Filtering cells to keep using file: ", toProcess[i,"Cells2Keep"]))
+    h5 <- subset(h5, cells = cells2keep$barcode)
   }
   
   print("Renaming Cells...")
