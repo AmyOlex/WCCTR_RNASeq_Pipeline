@@ -44,7 +44,7 @@ library(doParallel)
 library(future)
 library("biomaRt")
 
-localtest = TRUE
+localtest = FALSE
 ###########################################
 #### Local Testing Block
 if(localtest){
