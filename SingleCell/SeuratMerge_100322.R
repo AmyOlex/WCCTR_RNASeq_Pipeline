@@ -69,7 +69,7 @@ if(localtest){
 #numCores <- detectCores()
 #registerDoParallel(numCores)
 
-options(future.globals.maxSize = 10000 * 1024^2)
+options(future.globals.maxSize = 100000 * 1024^2)
 
 start_time <- Sys.time()
 
