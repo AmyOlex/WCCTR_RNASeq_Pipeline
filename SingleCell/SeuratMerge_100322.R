@@ -91,6 +91,9 @@ option_list = list(
   make_option(c("-f", "--features"), type="character", 
               help="Optional. A list of features to use for the PCA, UMAP, tSNE, and Clustering.", 
               default = "", metavar="character"),
+  make_option(c("-s", "--downsample"), type="integer", 
+              help="Optional. The percentage of cells to KEEP from each sample entered as an integer (eg. 20 for 20%). Default is 100.", 
+              default = 100, metavar="character"),
   make_option(c("--parallel"), type="logical", 
               help="Optional. Use paralellization for Merging and Integration (note, normalization of individual samples is always parallelized).",
               default = FALSE, action = "store_true", metavar="logical"),
@@ -139,6 +142,7 @@ mergeType <- opt$type
 features <- opt$features
 filtercells <- opt$filter
 regressCC <- opt$regressCellCycle
+downsample <- opt$downsample
 
 
 s.genes <- cc.genes.updated.2019$s.genes
@@ -159,6 +163,7 @@ print(paste("Filtering Cells: ", filtercells))
 print(paste("Using Parallel: ", parallel))
 print(paste("Saving h5Seurat file: ", saveH5))
 print(paste("Regressing out S-G2M cell cycle score: ", regressCC))
+print(paste("Percent of cells to keep in downsampling: ", downsample))
 
 if(!parallel){
   print("WARNING: Seurat merge and integration functions will NOT be parallized.  Use the --parallel flag to parallelize these functions.")
@@ -206,8 +211,16 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   if(filtercells){
     print("Loading list of cell barcodes to keep...")
     cells2keep <- read.delim(file=toProcess[i,"Cells2Keep"], header=TRUE) ##not sure if there is a header, check the file.
+    
+    if(downsample < 100){
+      print("Downsampling...")
+    }
+    
+    samplesize <- floor((downsample/100)*length(cells2keep$barcode))
+    sampledcells <- sample(x = cells2keep$barcode, size = samplesize, replace = F)
+    
     print(paste("Filtering cells to keep using file: ", toProcess[i,"Cells2Keep"]))
-    h5 <- subset(h5, cells = cells2keep$barcode)
+    h5 <- subset(h5, cells = sampledcells)
   }
   
   print("Renaming Cells...")
