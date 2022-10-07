@@ -62,6 +62,7 @@ if(localtest){
   filtercells <- TRUE
   saveH5 <- TRUE
   regressCC <- FALSE
+  downsample <- 10
   options(future.globals.maxSize = 3000 * 1024^2)
 }
 ###########################################
@@ -351,36 +352,60 @@ print("Adding Condition...")
 Idents(seurat.merged) <- seurat.merged@meta.data$orig.ident
 mid_time <- Sys.time()
 ## Add Sample annotations
-idents <- data.frame(barcode = names(seurat.merged@active.ident), LibraryID = seurat.merged@active.ident)
-condition <- idents
-names(condition) <- c("barcode","Condition")
-condition$Condition <- as.character(condition$Condition)
+#idents <- data.frame(barcode = names(seurat.merged@active.ident), LibraryID = seurat.merged@active.ident)
+#condition <- idents
+#names(condition) <- c("barcode","Condition")
+#condition$Condition <- as.character(condition$Condition)
 
-for(i in 1:dim(toProcess)[1]){
-  condition[condition$Condition == toProcess[i,1],"Condition"] <- toProcess[i,"Condition"]
-}
+#for(i in 1:dim(toProcess)[1]){
+#  condition[condition$Condition == toProcess[i,1],"Condition"] <- toProcess[i,"Condition"]
+#}
 
-seurat.merged$Condition <- condition[,"Condition",drop=FALSE]
+#seurat.merged$Condition <- condition[,"Condition",drop=FALSE]
 
-print("Adding TumorType...")
-mid_time <- Sys.time()
+#print("Adding TumorType...")
+#mid_time <- Sys.time()
 ## Add Sample annotations
-idents <- data.frame(barcode = names(seurat.merged@active.ident), LibraryID = seurat.merged@active.ident)
-ttype <- idents
-names(ttype) <- c("barcode","TumorType")
-ttype$TumorType <- as.character(ttype$TumorType)
+#idents <- data.frame(barcode = names(seurat.merged@active.ident), LibraryID = seurat.merged@active.ident)
+#ttype <- idents
+#names(ttype) <- c("barcode","TumorType")
+#ttype$TumorType <- as.character(ttype$TumorType)
 
-for(i in 1:dim(toProcess)[1]){
-  ttype[ttype$TumorType == toProcess[i,1],"TumorType"] <- toProcess[i,"TumorType"]
-}
+#for(i in 1:dim(toProcess)[1]){
+#  ttype[ttype$TumorType == toProcess[i,1],"TumorType"] <- toProcess[i,"TumorType"]
+#}
 
-seurat.merged$TumorType <- ttype[,"TumorType",drop=FALSE]
+#seurat.merged$TumorType <- ttype[,"TumorType",drop=FALSE]
 
 
 ## Save Sample Annotations
-write.csv(idents, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_LibraryID.csv"), quote = FALSE, row.names = FALSE)
-write.csv(condition, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_Condition.csv"), quote = FALSE, row.names = FALSE)
-write.csv(ttype, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_TumorType.csv"), quote = FALSE, row.names = FALSE)
+#write.csv(idents, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_LibraryID1.csv"), quote = FALSE, row.names = FALSE)
+#write.csv(condition, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_Condition1.csv"), quote = FALSE, row.names = FALSE)
+#write.csv(ttype, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_TumorType1.csv"), quote = FALSE, row.names = FALSE)
+
+
+for(n in 1:(dim(toProcess)[2]-1)){
+  idents <- data.frame(barcode = names(seurat.merged@active.ident), LibraryID = seurat.merged@active.ident)
+  anno <- idents
+  names(anno) <- c("barcode", names(toProcess)[n])
+  anno[,2] <- as.character(anno[,2])
+  
+  for(i in 1:dim(toProcess)[1]){
+    anno[,2] <- toProcess[i,n]
+  }
+  
+  seurat.merged@meta.data[n] <- anno[,2,drop=FALSE]
+  
+  
+  ## Save Sample Annotations
+  write.csv(anno, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_", names(toProcess)[n], ".csv"), quote = FALSE, row.names = FALSE)
+  
+  
+}
+
+
+
+
 
 print(Sys.time() - mid_time)
 
