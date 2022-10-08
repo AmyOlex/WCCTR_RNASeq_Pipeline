@@ -352,7 +352,7 @@ print("Adding Condition...")
 Idents(seurat.merged) <- seurat.merged@meta.data$orig.ident
 mid_time <- Sys.time()
 ## Add Sample annotations
-#idents <- data.frame(barcode = names(seurat.merged@active.ident), LibraryID = seurat.merged@active.ident)
+idents <- data.frame(barcode = names(seurat.merged@active.ident), LibraryID = seurat.merged@active.ident)
 #condition <- idents
 #names(condition) <- c("barcode","Condition")
 #condition$Condition <- as.character(condition$Condition)
@@ -379,7 +379,7 @@ mid_time <- Sys.time()
 
 
 ## Save Sample Annotations
-#write.csv(idents, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_LibraryID1.csv"), quote = FALSE, row.names = FALSE)
+write.csv(idents, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_LibraryID.csv"), quote = FALSE, row.names = FALSE)
 #write.csv(condition, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_Condition1.csv"), quote = FALSE, row.names = FALSE)
 #write.csv(ttype, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_TumorType1.csv"), quote = FALSE, row.names = FALSE)
 
@@ -391,7 +391,7 @@ for(n in 1:(dim(toProcess)[2]-1)){
   anno[,2] <- as.character(anno[,2])
   
   for(i in 1:dim(toProcess)[1]){
-    anno[,2] <- toProcess[i,n]
+    anno[anno[,2] == toProcess[i,1], 2] <- toProcess[i,n]
   }
   
   seurat.merged@meta.data[n] <- anno[,2,drop=FALSE]
