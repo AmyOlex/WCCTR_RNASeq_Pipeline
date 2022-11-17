@@ -54,17 +54,17 @@ print(paste("Report Output:", reportName))
 print(paste("Processing 10X report:", cellranger))
 
 # Read in the provided config file and loop for each row.
-toProcess = read.table(inFile, header=FALSE, sep="\t")
+toProcess = read.table(inFile, header=FALSE, sep=",")
 print(paste(dim(toProcess)[1], " rows were found."))
 
 # Initialize summary report data frame
 print(paste("Processing row 1 from sample", toProcess[1,1]))
 
 if(cellranger){
-  reportData <- read.csv(paste0(as.character(toProcess[1,2]), "/metrics_summary.csv"), sep=",")
+  reportData <- read.csv(paste0(as.character(toProcess[1,2]), "/metrics_summary.csv"))
   report_sampleIDs <- as.character(toProcess[1,1])
 }else{
-  reportData <- read.csv(as.character(toProcess[1,2]), sep=",")
+  reportData <- read.csv(as.character(toProcess[1,2]))
   report_sampleIDs <- as.character(toProcess[1,1])
 }
 
@@ -76,7 +76,7 @@ for(i in 2:dim(toProcess)[1]){
   report_sampleIDs <- append(report_sampleIDs, as.character(toProcess[i,1]))
   
   if(cellranger){
-    reportData <- rbind(reportData, read.csv(paste0(as.character(toProcess[i,2]), "/metrics_summary.csv"), sep=","))
+    reportData <- rbind(reportData, read.csv(paste0(as.character(toProcess[i,2]), "/metrics_summary.csv")))
   }else{
     reportData = rbind(reportData, read.csv(as.character(toProcess[i,2])))
   }
