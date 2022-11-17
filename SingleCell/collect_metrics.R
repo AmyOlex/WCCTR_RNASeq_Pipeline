@@ -64,7 +64,7 @@ if(cellranger){
   reportData <- read.csv(paste0(as.character(toProcess[1,2]), "/metrics_summary.csv"))
   report_sampleIDs <- as.character(toProcess[1,1])
 }else{
-  reportData <- read.csv(as.character(toProcess[1,2]))
+  reportData <- read.csv(as.character(toProcess[1,2]), "/metrics_summary.csv")
   report_sampleIDs <- as.character(toProcess[1,1])
 }
 
