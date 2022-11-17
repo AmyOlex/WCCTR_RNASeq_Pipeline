@@ -61,10 +61,10 @@ print(paste(dim(toProcess)[1], " rows were found."))
 print(paste("Processing row 1 from sample", toProcess[1,1]))
 
 if(cellranger){
-  reportData <- read.csv(paste0(as.character(toProcess[1,2]), "/metrics_summary.csv"))
+  reportData <- read.csv(paste0(as.character(toProcess[1,2]), "/metrics_summary.csv"), sep=",")
   report_sampleIDs <- as.character(toProcess[1,1])
 }else{
-  reportData <- read.csv(as.character(toProcess[1,2]))
+  reportData <- read.csv(as.character(toProcess[1,2]), sep=",")
   report_sampleIDs <- as.character(toProcess[1,1])
 }
 
@@ -76,7 +76,7 @@ for(i in 2:dim(toProcess)[1]){
   report_sampleIDs <- append(report_sampleIDs, as.character(toProcess[i,1]))
   
   if(cellranger){
-    reportData <- rbind(reportData, read.csv(paste0(as.character(toProcess[i,2]), "/metrics_summary.csv")))
+    reportData <- rbind(reportData, read.csv(paste0(as.character(toProcess[i,2]), "/metrics_summary.csv"), sep=","))
   }else{
     reportData = rbind(reportData, read.csv(as.character(toProcess[i,2])))
   }
