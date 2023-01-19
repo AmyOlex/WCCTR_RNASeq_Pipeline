@@ -59,6 +59,16 @@ sigfile <- opt$sigfile  ## "scTyperSignatures_12.19.22.tsv"
 phenofile <- opt$phenofile  ## "SeuratSimpleMerge_Visvader-plus-PDX_noUNC_GRCh38_100422_scTyper.MetaData.csv"
 typelevel <- opt$typelevel  ## "cell"
 
+print("Summary of input options:\n")
+print(paste("Run Name: ", runID))
+print(paste("WD: ", wd))
+print(paste("Seurat File: ", seuratfile))
+print(paste("Signature  File: ", sigfile))
+print(paste("Phenotype File: ", phenofile))
+print(paste("Type Level: ", typelevel))
+
+
+
 setwd(wd)
 
 #load in data set
