@@ -14,13 +14,13 @@ option_list = list(
               help="output directory for results report (must already exist). Default is current directory.",
               default = "./", metavar="character"),
   
-  make_option(c("-f", "--seuratfile"), type="character", default=NULL,
+  make_option(c("-i", "--seuratfile"), type="character", default=NULL,
               help="Seurat object saved as an RData file in a variable named seurat.merged.", metavar="character"),
   
   make_option(c("-s", "--sigfile"), type="character", default=NULL,
               help="A TSV file with the gene signatures to use for cell type classification.", metavar="character"),
   
-  make_option(c("-p", "--phenofile"), type="character", default=NULL,
+  make_option(c("-f", "--phenofile"), type="character", default=NULL,
               help="A CSV file with the sample annotations must be provided.", metavar="character"),
   
   make_option(c("-t", "--typelevel"), type="character", 
