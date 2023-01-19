@@ -1,39 +1,6 @@
 ## Amy Olex
-## 10/03/2022 (update4d from version on 4/5/2021)
-## File to remove identified dead cells and merge scRNASeq data from single cell 10X experiments
-## Steps for Filtering:
-## 1) Import cells to keep and store in a list in same order as list of experiments to merge.
-## 2) subset each Seurat object
-## 3) proceed to merging
-
-## Steps for Merging:
-## 1) create Seurat .h5Seurat files for each sample
-## 2) Rename Barcodes
-## 3) Normalize each data set using SCT or Log
-## 4) Create a list of Seurat objects to merge
-## 5) Select integration features and find anchors
-## 6) Merge Data Sets
-## 7) Write out 10X files
-## 8) Create sample annotations
-## 9) Run PCA, tSNE, and UMAP, and output feature annotations
-## 10) Cluster cells and output feature annotations
-## 11) Save Merged and annotated Seurat Object as an h5Seurat file.
-
-## INPUTS
-## Path to cells to keep file
-## Path to unfiltered h5Seurat file OR path to 10X filtered_features_bc_matrix folder (or equivalent)
-## Flag to delineate input types.
-## 
-## sample file format:
-## SampleName, DataType (Seurat|10X), SamplePath, Cells2KeepPath, Condition
-
-## UPDATED 6/4/21 to also provide a simple merge option
-## BUG Fixes 9/2/21 to output the conditions correctly
-## UPDATED 9/2/21 to run PCA, UMAP, tSNE, and Clustering using a subset of features
-## UPDATED 10/14/21 to fix the feature subset issue and add in CellCycle Annotations.
-## UPDATED 10/03/22 updated to include filtering out dead cells from a provided list 
-##         as well as not requiring the exact bc matrix directory name.
-## UPDATED 12/12/2022 to also save an RDS file to save the Seurat object.
+## 11/18/22
+## File to load in a list of Seurat object then get the file statisticsa and save them to a report.
 
 library(Seurat)
 #library(SeuratDisk)
@@ -45,13 +12,13 @@ library(doParallel)
 library(future)
 library("biomaRt")
 
-localtest = FALSE
+localtest = TRUE
 ###########################################
 #### Local Testing Block
 if(localtest){
   setwd("/Users/alolex/Desktop/HersheyFiles/")
   runID <- "TEST"
-  inFile <- "/Users/alolex/Desktop/HersheyFiles/SeuratSimpleMerge_TEST_GRCh38_100322.csv"
+  inFile <- "/Users/alolex/Desktop/CCTR_Git_Repos/WCCTR_RNASeq_Pipeline/SingleCell/debug_files/seurat_get_metrics_test.csv"
   outDir <- "./debug_files/"
   features <- "./debug_files/PI3K_features.txt"
   savedir <- paste0(outDir,runID)
@@ -178,18 +145,24 @@ toProcess = read.table(inFile, header=TRUE, sep=",", stringsAsFactors = FALSE)
 
 print(paste(names(toProcess)))
 
+## Adding columns to input table
 toProcess$SeuratObj <- ""
+toProcess$TotalCells.BEFOREdcf <- ""
+toProcess$TotalReads.BEFOREdcf <- ""
+toProcess$TotalCells.AFTERdcf <- ""
+toProcess$TotalReads.AFTERdcf <- ""
+toProcess$AvgMitoExpPct.BEFORE <- ""
+toProcess$AvgMitoExpPct.AFTER <- ""
+
+
 
 print(paste(names(toProcess)))
 
 print(paste(dim(toProcess)[1], " rows were found."))
 
-#Register num cores for doParallel loop
-registerDoParallel(numCores)
-
 sc_start <- Sys.time()
 
-seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
+seurat_list <- foreach(i=1:dim(toProcess)[1]){
   print(paste("Importing data for row", i, "from sample", toProcess[i,"SampleName"]))
   
   if(toProcess[i,"DataType"] == "Seurat"){
@@ -209,6 +182,10 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
     print("Error unknown data type.")
     quit(1)
   }
+  
+  ### Calculate stats
+  toProcess[i,"TotalCells.BEFOREdcf"] <- length(names(h5$orig.ident))
+  toProcess[i,"TotalReads.BEFOREdcf"] <- sum(h5$nFeature_RNA)
   
   if(filtercells){
     print("Loading list of cell barcodes to keep...")
@@ -290,7 +267,7 @@ if(mergeType == "integration"){
   #seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = normalization, anchor.features = hfile_features, reference = 5, verbose = FALSE)
   seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = normalization, anchor.features = hfile_features, verbose = FALSE)
   
-
+  
   if(regressCC){
     ## Ensure cell cycle genes are included in the list
     genes.to.integrate <- union(seurat.anchors@anchor.features, cc.genes)
@@ -439,7 +416,7 @@ if(features != ""){
   #std <- colSds(rna_assay)
   #rna_assay2 <- rna_assay[,which(std >= quantile(std)[3])]
   #colnames(rna_assay2)
-
+  
   my_feats <- read.delim(features,header=FALSE)[,1]
   seurat.merged <- ScaleData(seurat.merged, verbose = FALSE, features = my_feats)
   seurat.merged <- RunPCA(seurat.merged, verbose = FALSE, features = my_feats, npcs = 50, approx=FALSE)
@@ -511,10 +488,8 @@ if(saveH5){
 }else{
   if(features != ""){
     save(seurat.merged, file = paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated_wFeatureSubset.RData"), compress = TRUE)
-    saveRDS(seurat.merged, file = paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated_wFeatureSubset.rds"), compress = TRUE)
   } else {
     save(seurat.merged, file = paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated.RData"), compress = TRUE)
-    saveRDS(seurat.merged, file = paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated.rds"), compress = TRUE)
   }
 }
 
