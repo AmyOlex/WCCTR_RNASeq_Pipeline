@@ -9,15 +9,18 @@ library(optparse)
 option_list = list(
   make_option(c("-r", "--runid"), type="character", default=NULL, 
               help="Required. A unique name for this analysis.", metavar="character"),
+  
   make_option(c("-o", "--outdir"), type="character", 
               help="output directory for results report (must already exist). Default is current directory.",
               default = "./", metavar="character"),
-  make_option(c("-f", "--seuratfile"), type="character", 
+  
+  make_option(c("-f", "--seuratfile"), type="character", default=NULL,
               help="Seurat object saved as an RData file in a variable named seurat.merged.", metavar="character"),
   
-  make_option(c("-s", "--sigfile"), type="character", 
+  make_option(c("-s", "--sigfile"), type="character", default=NULL,
               help="A TSV file with the gene signatures to use for cell type classification.", metavar="character"),
-  make_option(c("-p", "--phenofile"), type="character", 
+  
+  make_option(c("-p", "--phenofile"), type="character", default=NULL,
               help="A CSV file with the sample annotations must be provided.", metavar="character"),
   
   make_option(c("-t", "--typelevel"), type="character", 
