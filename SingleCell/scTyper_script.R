@@ -25,8 +25,7 @@ option_list = list(
   
   make_option(c("-t", "--typelevel"), type="character", 
               help="Optional. The level of cell typing. Options are cell (default) or cluster.", 
-              default = "cell", metavar="character"),
-  
+              default = "cell", metavar="character")
   
 ); 
 
