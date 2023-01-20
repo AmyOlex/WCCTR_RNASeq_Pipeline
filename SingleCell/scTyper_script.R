@@ -104,7 +104,7 @@ celltyped.seurat=scTyper(seurat.object=seurat.merged,
                          mc.cores = 30)
 
 #save cell.type annotation to CSV file
-write.csv(data.frame(barcode = names(celltyped.seurat@active.ident), scTyperAvg.cellType = celltyped.seurat@meta.data$cell.type), file=paste0(runID,".csv", quote = FALSE, row.names = FALSE))
+write.csv(data.frame(barcode = names(celltyped.seurat@active.ident), scTyperAvg.cellType = celltyped.seurat@meta.data$cell.type), file=paste0(runID,".csv"), quote = FALSE, row.names = FALSE)
 
 #save seurat object
 saveRDS(celltyped.seurat, file = paste0(runID, "_scTyperTyped.rds"))
