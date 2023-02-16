@@ -21,7 +21,7 @@ option_list = list(
   make_option(c("-i", "--seuratfile"), type="character", default=NULL,
               help="Seurat object saved as an RData file in a variable named seurat.merged.", metavar="character"),
   
-  make_option(c("-k", "--subsetK"), type="character", default=-1,
+  make_option(c("-k", "--subsetK"), type="integer", default=-1,
               help="Number of samples to include per group. Default is -1, which uses all samples.", metavar="integer"),
   
   make_option(c("-f", "--phenofile"), type="character", default=NULL,
