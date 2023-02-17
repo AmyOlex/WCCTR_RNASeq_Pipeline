@@ -155,7 +155,7 @@ for(sg in sample_groups){
   ## Run inferCNV!
   ###########
   print("creating inferCNV object...")
-  cells.test_reference = c("SELECTED_Normal")
+  cells.test_reference = c("REFERENCE")
   infercnv_obj = infercnv::CreateInfercnvObject(raw_counts_matrix=raw.mat[od.st,],
                                                 annotations_file=annot.fn,
                                                 gene_order_file=gene.od.fn,
