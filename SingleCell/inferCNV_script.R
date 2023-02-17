@@ -141,6 +141,16 @@ for(sg in sample_groups){
   od.st=order(gene.od$chr, gene.od$str)
   match(c(1:22, "X"), gene.od[od.st,]$chr)
   
+  # create and write out infercnv formatted files
+  output.dir = wd
+  raw.mat.fn=file.path(output.dir, paste0(runID, "_raw_counts_matrix.txt"))
+  annot.fn=file.path(output.dir, paste0(runID, "_annotations.txt"))
+  gene.od.fn=file.path(output.dir, paste0(runID, "_gene_order.txt"))
+  write.table(raw.mat[od.st,], raw.mat.fn, quote = FALSE, sep = "\t", row.names = TRUE, col.names = TRUE)
+  write.table(annot, annot.fn, quote = FALSE, sep = "\t", row.names = FALSE, col.names = FALSE)
+  write.table(gene.od[od.st,], gene.od.fn, quote = FALSE, sep = "\t", row.names = FALSE, col.names = FALSE)
+  
+  
   ## ###########
   ## Run inferCNV!
   ###########
@@ -219,14 +229,6 @@ write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvZs
 
 
 
-# write out infercnv formatted files
-#output.dir = wd
-#raw.mat.fn=file.path(output.dir, paste0(runID, "_raw_counts_matrix.txt"))
-#annot.fn=file.path(output.dir, paste0(runID, "_annotations.txt"))
-#gene.od.fn=file.path(output.dir, paste0(runID, "_gene_order.txt"))
-#write.table(raw.mat[od.st,], raw.mat.fn, quote = FALSE, sep = "\t", row.names = TRUE, col.names = TRUE)
-#write.table(annot, annot.fn, quote = FALSE, sep = "\t", row.names = FALSE, col.names = FALSE)
-#write.table(gene.od[od.st,], gene.od.fn, quote = FALSE, sep = "\t", row.names = FALSE, col.names = FALSE)
 
 
 ###save Seurat obj with cnv scores
