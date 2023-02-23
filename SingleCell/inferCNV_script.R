@@ -60,7 +60,7 @@ phenofile <- opt$phenofile  ## "inferCNV_TEST_Visvader-MiniSubset_012023_metaDat
 generef <- opt$generef
 subsetK <- opt$subsetK ## 3
 
-debug=TRUE
+debug=FALSE
 if(debug){
 runID <-  "inferCNV_TEST_Visvader-MiniSubset_012023"
 wd <-  "/Users/alolex/Desktop/CCTR_Git_Repos/WCCTR_RNASeq_Pipeline/SingleCell/debug_files"
