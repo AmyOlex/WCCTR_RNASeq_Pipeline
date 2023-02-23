@@ -77,6 +77,114 @@ print(paste("Gene GTF: ", generef))
 print(paste("Subset K: ", subsetK))
 setwd(wd)
 
+
+##### Initiate custom functions ##########
+
+#' @title make.eset
+#' @description For the expression data are transformed to a file with extension .eSet
+#' @usage make.eset(expr, pdata=NULL, fdata=NULL, verbose=TRUE)
+#' @param expr expression data
+#' @param pdata phenotype data
+#' @param fdata feature data
+#' @param verbose default TRUE, Class to writing verbose messages to a connection or file.
+#' @details store expression data in ExpressionSet format for convenient analysis
+#' @return expression set
+#' @export
+make.eset <- function(expr, pdata=NULL, fdata=NULL, verbose=TRUE){
+  Sys.setlocale(category = "LC_ALL", locale = "us")
+  
+  if (inherits(expr, "data.frame")) expr=as.matrix(expr)
+  if (inherits(expr, "ExpressionSet")) expr=as.matrix(exprs(expr))
+  
+  #for null data
+  if(is.null(pdata))    pdata=data.frame(phenoID=colnames(expr), row.names=colnames(expr))
+  if(is.null(rownames(pdata))) rownames(pdata)=colnames(expr)
+  
+  if(is.null(fdata))  fdata=data.frame(featureID=rownames(expr), row.names=rownames(expr))
+  if(is.null(rownames(fdata))) rownames(fdata)=rownames(expr)
+  
+  #match
+  if(ncol(pdata)>1){
+    p.st=match(colnames(expr), rownames(pdata))
+    p.col=colnames(pdata)
+    class(pdata)
+    pdata=data.frame(pdata[p.st,p.col],row.names=rownames(pdata)[p.st])
+    colnames(pdata)=p.col
+  }
+  
+  
+  f.st=match(rownames(expr), rownames(fdata))
+  f.col=colnames(fdata)
+  fdata=data.frame(fdata[f.st,], row.names=rownames(fdata)[f.st])
+  colnames(fdata)=f.col
+  
+  #create eset
+  metadata <- data.frame(labelDescription = colnames(pdata), row.names=colnames(pdata))
+  phenoData<-new("AnnotatedDataFrame", data=as.data.frame(pdata), varMetadata=metadata)
+  fmetadata <- data.frame(labelDescription = colnames(fdata), row.names=colnames(fdata))
+  featureData<-new("AnnotatedDataFrame", data=as.data.frame(fdata), varMetadata=fmetadata)
+  
+  eset<-new("ExpressionSet", exprs=expr, phenoData=phenoData, featureData=featureData)
+  if(verbose) print(eset)
+  return(eset)
+}
+
+
+######### Currently not using this function.
+#' @title malignant.cellTyper
+#' @description A function to malignant cell typing
+#' @param seurat Seurat object
+#' @param rda.dir rData directory
+#' @param malignant.cell.type Cell type to assign malignant cell
+#' @param feature.to.test features to test as reference
+#' @param cells.test_reference cells to test as reference
+#' @details classification of malignant and non malignant seurat object.
+#' @return Seurat object
+#' @export
+malignant.cellTyper <- function(seurat,
+                                rda.dir = "./data",
+                                malignant.cell.type="Epithelial",
+                                feature.to.test = c("cell.type","tissue.type"),
+                                cells.test_reference="immune"){
+  
+  
+  message("[[",Sys.time(),"]] Run malignant.cellTyper --------")
+  cell.type=as.character(seurat$cell.type)
+  mal.fil.st = cell.type==malignant.cell.type
+  
+  if(feature.to.test=="tissue.type"){
+    cnv.cut=quantile(seurat$cnv.score[seurat$cell.group %in% cells.test_reference], probs=0.90, na.rm = TRUE)
+  }else if(feature.to.test=="cell.type"){
+    cnv.cut=quantile(seurat$cnv.score[seurat$cell.group %in% c(cells.test_reference, "Unresolved_cell")], probs=0.90, na.rm = TRUE)
+  }
+  
+  seurat$cnv.st=seurat$cnv.score>cnv.cut
+  cnv.fil.st=seurat$cnv.st
+  
+  fil.st= (mal.fil.st | cnv.fil.st)
+  table(fil.st)
+  
+  seurat$malignant.st=fil.st
+  seurat$nonmalignant.st = !fil.st
+  
+  cell.type[fil.st]="Malignant_cell"
+  seurat$cell.type=as.factor(cell.type)
+  
+  save(seurat, file = file.path(rda.dir, "seurat.rda"))
+  message("[[",Sys.time(),"]] Finish malignant.cellTyper --------")
+  return(seurat)
+}
+
+############ End custom functions ##############
+
+
+
+
+
+
+
+
+
 ## Load in data
 load(seuratfile)
 samples <- read.csv(phenofile)
