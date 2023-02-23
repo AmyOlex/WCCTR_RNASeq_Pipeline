@@ -346,28 +346,28 @@ if(all(row.names(multiData) == names(seurat.merged$orig.ident))){
   seurat.merged$cnv.ZscoreCat=multiData$cnv.ZscoreCat
 
   ##write out the annotation data and files
-  write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvscore = seurat.merged@meta.data$cnv.score), file = paste0(celltyped.file, "_inferCNVscores.csv"), quote=FALSE, row.names=FALSE)
-  write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvZscore = seurat.merged@meta.data$cnv.Zscore), file = paste0(celltyped.file, "_inferCNVZscores.csv"), quote=FALSE, row.names=FALSE)
-  write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvZscoreCat = seurat.merged@meta.data$cnv.ZscoreCat), file = paste0(celltyped.file, "_inferCNVZscoreCat.csv"), quote=FALSE, row.names=FALSE)
+  write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvscore = seurat.merged@meta.data$cnv.score), file = paste0(seuratfile, "_inferCNVscores.csv"), quote=FALSE, row.names=FALSE)
+  write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvZscore = seurat.merged@meta.data$cnv.Zscore), file = paste0(seuratfile, "_inferCNVZscores.csv"), quote=FALSE, row.names=FALSE)
+  write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvZscoreCat = seurat.merged@meta.data$cnv.ZscoreCat), file = paste0(seuratfile, "_inferCNVZscoreCat.csv"), quote=FALSE, row.names=FALSE)
 }else{
   print("ERROR: barcode order did not match!")
 }
 
   ###save Seurat obj with cnv scores
   print("saving Seurat...")
-  saveRDS(seurat.merged, paste0(celltyped.file, ".inferCNVscores.rda"))
+  saveRDS(seurat.merged, paste0(seuratfile, ".inferCNVscores.rda"))
 
-  #write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvscore = seurat.merged@meta.data$cnv.score), file = paste0(celltyped.file, "_inferCNVscores.csv"), quote=FALSE, row.names=FALSE)
+  #write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvscore = seurat.merged@meta.data$cnv.score), file = paste0(seuratfile, "_inferCNVscores.csv"), quote=FALSE, row.names=FALSE)
   print("Saving images...")
-  png(filename = paste0(paste0(celltyped.file, ".inferCNVscores.png")))
+  png(filename = paste0(paste0(seuratfile, ".inferCNVscores.png")))
     FeaturePlot(seurat.merged, features = "cnv.score")
   dev.off()
 
-  png(filename = paste0(paste0(celltyped.file, ".inferCNVZscores.png")))
+  png(filename = paste0(paste0(seuratfile, ".inferCNVZscores.png")))
   FeaturePlot(seurat.merged, features = "cnv.Zscore")
   dev.off()
 
-  png(filename = paste0(paste0(celltyped.file, ".inferCNVZscoreCat.png")))
+  png(filename = paste0(paste0(seuratfile, ".inferCNVZscoreCat.png")))
   FeaturePlot(seurat.merged, features = "cnv.ZscoreCat")
   dev.off()
 
