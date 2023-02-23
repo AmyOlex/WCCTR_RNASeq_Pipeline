@@ -60,13 +60,15 @@ phenofile <- opt$phenofile  ## "inferCNV_TEST_Visvader-MiniSubset_012023_metaDat
 generef <- opt$generef
 subsetK <- opt$subsetK ## 3
 
-
-#runID <-  "inferCNV_TEST_Visvader-MiniSubset_012023"
-#wd <-  "/Users/alolex/Desktop/CCTR_Git_Repos/WCCTR_RNASeq_Pipeline/SingleCell/debug_files"
-#seuratfile <-  "100422_Visvader-MiniSubset_30_SimpleMerge_GRCh38_Seurat_simpleMerge_LogNormalize_Annotated.RData"
-#phenofile <-  "inferCNV_TEST_Visvader-MiniSubset_012023_metaData.csv"
-#generef <- "genes.gtf"
-#subsetK <- 3
+debug=TRUE
+if(debug){
+runID <-  "inferCNV_TEST_Visvader-MiniSubset_012023"
+wd <-  "/Users/alolex/Desktop/CCTR_Git_Repos/WCCTR_RNASeq_Pipeline/SingleCell/debug_files"
+seuratfile <-  "100422_Visvader-MiniSubset_30_SimpleMerge_GRCh38_Seurat_simpleMerge_LogNormalize_Annotated.RData"
+phenofile <-  "inferCNV_TEST_Visvader-MiniSubset_012023_metaData.csv"
+generef <- "genes.gtf"
+subsetK <- 3
+}
 
 print("Summary of input options:\n")
 print(paste("Run Name: ", runID))
@@ -199,7 +201,14 @@ seurat.merged@meta.data$cell.group <- samples[match(seurat.merged@meta.data$orig
 ## Subset to chosen samples and SELECTED_Normal samples
 reference_list <- unique(seurat.merged$orig.ident[seurat.merged$cell.group %in% c("REFERENCE")])
 sample_list <- unique(seurat.merged$orig.ident[!(seurat.merged$cell.group %in% c("REFERENCE"))])
-sample_groups <- ifelse(subsetK < 0, list(sample_list), split(sample_list, ceiling(seq_along(sample_list)/subsetK)))
+if(subsetK < 0){
+  sample_groups <- list(sample_list)
+  }else{
+    sample_groups <- split(sample_list, ceiling(seq_along(sample_list)/subsetK))
+  }
+
+barcode_order <- names(seurat.merged$orig.ident)
+
 Idents(seurat.merged) <- "orig.ident"
 
 ## create an empty DF here to hold the pData information.
@@ -322,39 +331,38 @@ for(sg in sample_groups){
 print("Saving final files..." )
 
 multiData <- rbind(refData, pData_combined)
-multiData <- multiData[row.names(pData(fil.cset)),]
+multiData <- multiData[barcode_order,]
 
-### Add to Seurat obj
-seurat.merged$cnv.score=multiData$cnv.score
-seurat.merged$cnv.Zscore=multiData$cnv.Zscore
-seurat.merged$cnv.ZscoreCat=multiData$cnv.ZscoreCat
+if(all(row.names(multiData) == names(seurat.merged$orig.ident))){
+  ### Add to Seurat obj
+  seurat.merged$cnv.score=multiData$cnv.score
+  seurat.merged$cnv.Zscore=multiData$cnv.Zscore
+  seurat.merged$cnv.ZscoreCat=multiData$cnv.ZscoreCat
 
-##write out the annotation data and files
-write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvscore = seurat.merged@meta.data$cnv.score), file = paste0(celltyped.file, "_inferCNVscores.csv"), quote=FALSE, row.names=FALSE)
-write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvZscore = seurat.merged@meta.data$cnv.Zscore), file = paste0(celltyped.file, "_inferCNVZscores.csv"), quote=FALSE, row.names=FALSE)
-write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvZscoreCat = seurat.merged@meta.data$cnv.ZscoreCat), file = paste0(celltyped.file, "_inferCNVZscoreCat.csv"), quote=FALSE, row.names=FALSE)
+  ##write out the annotation data and files
+  write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvscore = seurat.merged@meta.data$cnv.score), file = paste0(celltyped.file, "_inferCNVscores.csv"), quote=FALSE, row.names=FALSE)
+  write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvZscore = seurat.merged@meta.data$cnv.Zscore), file = paste0(celltyped.file, "_inferCNVZscores.csv"), quote=FALSE, row.names=FALSE)
+  write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvZscoreCat = seurat.merged@meta.data$cnv.ZscoreCat), file = paste0(celltyped.file, "_inferCNVZscoreCat.csv"), quote=FALSE, row.names=FALSE)
+}else{
+  print("ERROR: barcode order did not match!")
+}
 
+  ###save Seurat obj with cnv scores
+  print("saving Seurat...")
+  saveRDS(seurat.merged, paste0(celltyped.file, ".inferCNVscores.rda"))
 
+  #write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvscore = seurat.merged@meta.data$cnv.score), file = paste0(celltyped.file, "_inferCNVscores.csv"), quote=FALSE, row.names=FALSE)
+  print("Saving images...")
+  png(filename = paste0(paste0(celltyped.file, ".inferCNVscores.png")))
+    FeaturePlot(seurat.merged, features = "cnv.score")
+  dev.off()
 
+  png(filename = paste0(paste0(celltyped.file, ".inferCNVZscores.png")))
+  FeaturePlot(seurat.merged, features = "cnv.Zscore")
+  dev.off()
 
-
-
-###save Seurat obj with cnv scores
-print("saving Seurat...")
-saveRDS(seurat.merged, paste0(celltyped.file, ".inferCNVscores.rda"))
-
-#write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvscore = seurat.merged@meta.data$cnv.score), file = paste0(celltyped.file, "_inferCNVscores.csv"), quote=FALSE, row.names=FALSE)
-print("Saving images...")
-png(filename = paste0(paste0(celltyped.file, ".inferCNVscores.png")))
-  FeaturePlot(seurat.merged, features = "cnv.score")
-dev.off()
-
-png(filename = paste0(paste0(celltyped.file, ".inferCNVZscores.png")))
-FeaturePlot(seurat.merged, features = "cnv.Zscore")
-dev.off()
-
-png(filename = paste0(paste0(celltyped.file, ".inferCNVZscoreCat.png")))
-FeaturePlot(seurat.merged, features = "cnv.ZscoreCat")
-dev.off()
+  png(filename = paste0(paste0(celltyped.file, ".inferCNVZscoreCat.png")))
+  FeaturePlot(seurat.merged, features = "cnv.ZscoreCat")
+  dev.off()
 
 print("COMPLETED!")
