@@ -291,7 +291,7 @@ for(sg in sample_groups){
                                HMM=T,
                                num_threads=30)
   
-  save(infercnv_obj, file=file.path("local_out_dir/", 'infercnv_obj.o.rda'))
+  save(infercnv_obj, file=file.path(paste0(local_out_dir,"/"), 'infercnv_obj.o.rda'))
   
   print("completed inferCNV...")
   
@@ -303,8 +303,8 @@ for(sg in sample_groups){
   infercnv_obj@count.data=infercnv_obj@count.data[sd.fil.st,]
   infercnv_obj@gene_order=infercnv_obj@gene_order[sd.fil.st,]
   
-  save(infercnv_obj, file=file.path("local_out_dir/", 'infercnv_obj.sd_filtered.rda'))
-  save(infercnv_obj, file=file.path("local_out_dir/", 'infercnv_obj.rda'))
+  save(infercnv_obj, file=file.path(paste0(local_out_dir,"/"), 'infercnv_obj.sd_filtered.rda'))
+  save(infercnv_obj, file=file.path(paste0(local_out_dir,"/"), 'infercnv_obj.rda'))
   
   #make filtered cnvset
   
@@ -312,7 +312,7 @@ for(sg in sample_groups){
   
   pData(fil.cset)$cnv.score=apply(exprs(fil.cset)-1, 2, function(a) sum(abs(a)))
   
-  #save(fil.cset, file=file.path("local_out_dir/", 'fil.cset.rda'))
+  #save(fil.cset, file=file.path(paste0(local_out_dir,"/"), 'fil.cset.rda'))
   
   ######
   ## Create Z-score version of data minus the normal samples
@@ -325,7 +325,7 @@ for(sg in sample_groups){
   ##merge sample DFs together
   pData_combined <- rbind(pData_combined, pData_noref)
   
-  save(fil.cset, file=file.path("local_out_dir/", 'fil.cset.rda'))
+  save(fil.cset, file=file.path(paste0(local_out_dir,"/"), 'fil.cset.rda'))
   
   ##save most recent ref data values (maybe average these one day?)
   refData <- pData(fil.cset)[!(pData(fil.cset)$orig.ident %in% sg),]
