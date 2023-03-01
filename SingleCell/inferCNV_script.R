@@ -217,7 +217,7 @@ refData <- ""
 iter <- 0
 
 ## Save the sample groups
-write.csv(sample_groups, paste0(runID, "_sample_groups.csv"))
+write.csv(t(as.data.frame(sample_groups)), paste0(runID, "_sample_groups.csv"))
 
 for(sg in sample_groups){
   iter <- iter+1
