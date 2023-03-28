@@ -235,16 +235,16 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
     if(barcodes_to_remove != ""){
       to_remove_this_sample <- paste0(barcodes_to_remove[barcodes_to_remove$V2 == i, "V1"],"-1")
       print(paste0("Removing ",length(to_remove_this_sample)," cells to exclude from cells2keep."))
-      print("HELLO1")
       cells2keep <- cells2keep[!(cells2keep$barcode %in% to_remove_this_sample),,drop=FALSE]
-      print("HELLO2")
-      print(paste0("FINAL keeping ", length(cells2keep$barcode), " cells."))
+      print(paste0("After EXCLUSION keeping ", length(cells2keep$barcode), " cells."))
     }
     
     samplesize <- floor((downsample/100)*length(cells2keep$barcode))
     sampledcells <- sample(x = cells2keep$barcode, size = samplesize, replace = F)
     
-    print(paste0("Filtering cells2keep using file: ", toProcess[i,"Cells2Keep"]))
+    print(paste0("After DOWNSAMPLING keeping ", length(sampledcells), " cells."))
+    
+    #print(paste0("Filtering cells2keep using file: ", toProcess[i,"Cells2Keep"]))
     h5 <- subset(h5, cells = sampledcells)
   }
   
