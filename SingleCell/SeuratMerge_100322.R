@@ -236,7 +236,7 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
       to_remove_this_sample <- paste0(barcodes_to_remove[barcodes_to_remove$V2 == i, "V1"],"-1")
       print(paste0("Removing ",length(to_remove_this_sample)," cells to exclude from cells2keep."))
       print("HELLO1")
-      cells2keep <- cells2keep[!(cells2keep$barcode %in% to_remove_this_sample),]
+      cells2keep <- cells2keep[!(cells2keep$barcode %in% to_remove_this_sample),,drop=FALSE]
       print("HELLO2")
       print(paste0("FINAL keeping ", length(cells2keep$barcode), " cells."))
     }
