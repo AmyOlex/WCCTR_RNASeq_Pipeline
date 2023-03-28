@@ -1,5 +1,5 @@
 ## Amy Olex
-## 10/03/2022 (update4d from version on 4/5/2021)
+## 10/03/2022 (updated from version on 4/5/2021)
 ## File to remove identified dead cells and merge scRNASeq data from single cell 10X experiments
 ## Steps for Filtering:
 ## 1) Import cells to keep and store in a list in same order as list of experiments to merge.
@@ -96,6 +96,9 @@ option_list = list(
   make_option(c("-s", "--downsample"), type="integer", 
               help="Optional. The percentage of cells to KEEP from each sample entered as an integer (eg. 20 for 20%). Default is 100.", 
               default = 100, metavar="character"),
+  make_option(c("-e", "--exclude"), type="character", 
+              help="Optional. A TSV file with a list of barcodes that should be removed FIRST before downsampling is performed.  This was added as a specialty feature for merging very large datasets in batches. It needs to already be formatted with the numbered extensions for each sample.", 
+              default = "", metavar="character"),
   make_option(c("--parallel"), type="logical", 
               help="Optional. Use paralellization for Merging and Integration (note, normalization of individual samples is always parallelized).",
               default = FALSE, action = "store_true", metavar="logical"),
@@ -145,7 +148,7 @@ features <- opt$features
 filtercells <- opt$filter
 regressCC <- opt$regressCellCycle
 downsample <- opt$downsample
-
+exclude <- opt$exclude
 
 s.genes <- cc.genes.updated.2019$s.genes
 g2m.genes <- cc.genes.updated.2019$g2m.genes
@@ -166,6 +169,7 @@ print(paste("Using Parallel: ", parallel))
 print(paste("Saving h5Seurat file: ", saveH5))
 print(paste("Regressing out S-G2M cell cycle score: ", regressCC))
 print(paste("Percent of cells to keep in downsampling: ", downsample))
+print(paste("Excluding cells in file: ", exclude))
 
 if(!parallel){
   print("WARNING: Seurat merge and integration functions will NOT be parallized.  Use the --parallel flag to parallelize these functions.")
@@ -183,6 +187,15 @@ toProcess$SeuratObj <- ""
 print(paste(names(toProcess)))
 
 print(paste(dim(toProcess)[1], " rows were found."))
+
+## Import the barcodes to exclude if it exists
+barcodes_to_remove = ""
+if(exclude != ""){
+  tmp <- read.delim(exclude, header=FALSE)
+  barcodes_to_remove <- as.data.frame(t(as.data.frame(strsplit(tmp$V1,split = "-"))))
+  
+  #sub <- df[df$V2 == 21, "V1"]
+}
 
 #Register num cores for doParallel loop
 registerDoParallel(numCores)
@@ -213,9 +226,17 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   if(filtercells){
     print("Loading list of cell barcodes to keep...")
     cells2keep <- read.delim(file=toProcess[i,"Cells2Keep"], header=TRUE) ##not sure if there is a header, check the file.
+    print(paste("Keeping ", length(cells2keep), " cells."))
     
     if(downsample < 100){
       print("Downsampling...")
+    }
+    
+    if(barcodes_to_remove != ""){
+      to_remove_this_sample <- barcodes_to_remove[barcodes_to_remove$V2 == i, "V1"]
+      print(paste("Removing ",str(length(to_remove_this_sample))," cells to exclude from cells2keep."))
+      cells2keep <- setdiff(cells2keep, to_remove_this_sample)
+      print(paste("FINAL keeping ", length(cells2keep), " cells."))
     }
     
     samplesize <- floor((downsample/100)*length(cells2keep$barcode))
@@ -224,6 +245,20 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
     print(paste("Filtering cells to keep using file: ", toProcess[i,"Cells2Keep"]))
     h5 <- subset(h5, cells = sampledcells)
   }
+  
+  #if(exclude == "" and !filtercells){
+  #  to_remove_this_sample <- barcodes_to_remove[barcodes_to_remove$V2 == i, "V1"]
+  #  print(paste("Excluding cells : ", str(length(to_remove_this_sample)) ))
+  #  
+  #  if(downsample < 100){
+  #    print("Downsampling...")
+  #  }
+  #  
+  #  samplesize <- floor((downsample/100)*length(cells2keep$barcode))
+  #  sampledcells <- sample(x = cells2keep$barcode, size = samplesize, replace = F)
+  #  
+  #  h5 <- subset(h5, cells = sampledcells)
+  #}
   
   print("Renaming Cells...")
   ## Rename the barcodes in each file with a count greater than 1
