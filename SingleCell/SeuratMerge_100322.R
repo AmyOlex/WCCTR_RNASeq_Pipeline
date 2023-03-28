@@ -226,23 +226,23 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   if(filtercells){
     print("Loading list of cell barcodes to keep...")
     cells2keep <- read.delim(file=toProcess[i,"Cells2Keep"], header=TRUE) ##not sure if there is a header, check the file.
-    print(paste("Keeping ", length(cells2keep), " cells."))
+    print(paste0("Keeping ", length(cells2keep$barcode), " cells."))
     
     if(downsample < 100){
       print("Downsampling...")
     }
     
     if(barcodes_to_remove != ""){
-      to_remove_this_sample <- barcodes_to_remove[barcodes_to_remove$V2 == i, "V1"]
-      print(paste("Removing ",str(length(to_remove_this_sample))," cells to exclude from cells2keep."))
-      cells2keep <- setdiff(cells2keep, to_remove_this_sample)
-      print(paste("FINAL keeping ", length(cells2keep), " cells."))
+      to_remove_this_sample <- paste0(barcodes_to_remove[barcodes_to_remove$V2 == i, "V1"],"-1")
+      print(paste0("Removing ",str(length(to_remove_this_sample))," cells to exclude from cells2keep."))
+      cells2keep <- cells2keep[!(cells2keep$barcode %in% to_remove_this_sample),]
+      print(paste("FINAL keeping ", str(length(cells2keep$barcode)), " cells."))
     }
     
     samplesize <- floor((downsample/100)*length(cells2keep$barcode))
     sampledcells <- sample(x = cells2keep$barcode, size = samplesize, replace = F)
     
-    print(paste("Filtering cells to keep using file: ", toProcess[i,"Cells2Keep"]))
+    print(paste0("Filtering cells to keep using file: ", toProcess[i,"Cells2Keep"]))
     h5 <- subset(h5, cells = sampledcells)
   }
   
