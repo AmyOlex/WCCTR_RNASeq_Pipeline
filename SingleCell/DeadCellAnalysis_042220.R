@@ -24,23 +24,30 @@ library("optparse")
 option_list = list(
   make_option(c("-r", "--runid"), type="character", default=NULL, 
               help="Required. A unique name for this analysis.", metavar="character"),
+  
   make_option(c("-c", "--configfile"), type="character", 
               help="Required. Input config file with sample information.", metavar="character"),
+  
   make_option(c("-m", "--mito"), type="character", 
               help="type of mitochondria gene list to use. Options are coding, noncoding, all (default = coding)", 
               default = "coding", metavar="character"),
+  
   make_option(c("-s", "--species"), type="character", 
               help="species to use for mitochandria genes. Options are human, mouse, merged (default = human).",
               default = "human", metavar="character"),
+  
   make_option(c("-f", "--mitoFile"), type="character", 
               help="The direct path to a mitochondria gene list file.", 
-              default = NULL, action = "store_true", metavar="logical"),
+              default = NULL, metavar="character"),
+  
   make_option(c("--excludeCells"), type="logical", 
               help="Wether or not to perform filtering BEFORE dead cell analysis.  Include flag if a 3rd column listing the directory and file name of the exclusion list of barcodes is provided in the config file. Default is Flase.", 
-              default = FALSE, metavar="character"),
+              default = FALSE, action = "store_true", metavar="logical"),
+  
   make_option(c("-o", "--outdir"), type="character", 
               help="output directory for results report (must already exist). Default is current directory.",
               default = "./", metavar="character")
+  
 #  make_option(c("--usegem"), type="logical", 
 #              help="flags script to utilize the gem files associated with the inputs to create a second cells2keep file that includes all mouse cells from combined PDX samples.",
 #              default = FALSE, action = "store_true", metavar="logical")
