@@ -144,7 +144,7 @@ for(i in 1:dim(toProcess)[1]){
   
   if(exclude){
     ## remove the cells to exclude first
-    excludeCells <- read.delim(excludeFile, header=FALSE)
+    excludeCells <- read.delim(excludeFile, header=TRUE)
     
     print(paste0("Excluding cells!!! Number of cells to be excluded: ", length(excludeCells$barcodes)))
     print(paste0("Number of cells in dataset before:", length(scPDX$orig.ident)))
