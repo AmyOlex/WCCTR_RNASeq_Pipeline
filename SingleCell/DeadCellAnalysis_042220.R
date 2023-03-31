@@ -41,7 +41,7 @@ option_list = list(
               default = NULL, metavar="character"),
   
   make_option(c("--excludeCells"), type="logical", 
-              help="Wether or not to perform filtering BEFORE dead cell analysis.  Include flag if a 3rd column listing the directory and file name of the exclusion list of barcodes is provided in the config file. Default is Flase.", 
+              help="Wether or not to perform filtering BEFORE dead cell analysis.  Include flag if a 3rd column listing the directory and file name of the exclusion list of barcodes is provided in the config file. must have header named barcodes. Default is FALSE", 
               default = FALSE, action = "store_true", metavar="logical"),
   
   make_option(c("-o", "--outdir"), type="character", 
@@ -146,9 +146,9 @@ for(i in 1:dim(toProcess)[1]){
     ## remove the cells to exclude first
     excludeCells <- read.delim(excludeFile, header=FALSE)
     
-    print(paste0("Excluding cells!!! Number of cells to be excluded: ", length(excludeCells$V1)))
+    print(paste0("Excluding cells!!! Number of cells to be excluded: ", length(excludeCells$barcodes)))
     print(paste0("Number of cells in dataset before:", length(scPDX$orig.ident)))
-    scPDX <- subset(x = scPDX, cells = excludeCells$V1, invert = TRUE)
+    scPDX <- subset(x = scPDX, cells = excludeCells$barcodes, invert = TRUE)
     print(paste0("Number of cells in dataset after:", length(scPDX$orig.ident)))
   }
   # add in mito gene percents and print violin plots
