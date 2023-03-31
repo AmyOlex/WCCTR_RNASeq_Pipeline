@@ -10,6 +10,9 @@
 # The output files will be saved to the sudfolder "dead_cell_analysis" in the files live_cells.txt and 
 # dead_cells.txt.  A text file with the dead cell filtering criteria and the violin image plots will also 
 # be saved to this folder for reference.
+#
+# UPDATE 3/30/23: Added an option to do a hard filter on a known subset of cells by providing a barcode list of cells to EXCLUDE.
+#                 These cells will be excluded BEFORE any deadcell filtering is performed.
 
 library("Seurat")
 library("readr")
@@ -31,7 +34,10 @@ option_list = list(
               default = "human", metavar="character"),
   make_option(c("-f", "--mitoFile"), type="character", 
               help="The direct path to a mitochondria gene list file.", 
-              default = NULL, metavar="character"),
+              default = NULL, action = "store_true", metavar="logical"),
+  make_option(c("--excludeCells"), type="logical", 
+              help="Wether or not to perform filtering BEFORE dead cell analysis.  Include flag if a 3rd column listing the directory and file name of the exclusion list of barcodes is provided in the config file. Default is Flase.", 
+              default = FALSE, metavar="character"),
   make_option(c("-o", "--outdir"), type="character", 
               help="output directory for results report (must already exist). Default is current directory.",
               default = "./", metavar="character")
@@ -80,6 +86,7 @@ runID <- opt$runid
 inFile <- opt$configfile
 reportDir <- opt$outdir
 reportName <- paste0(reportDir, runID, "_DeadCellReport.txt")
+exclude <- opt$excludeCells
 
 #### Ok, print out all the current running options as a summary.
 
@@ -88,7 +95,7 @@ print(paste("Run Name:", runID))
 print(paste("ConfigFile:", inFile))
 print(paste("Report Output:", reportName))
 print(paste("Mitochandria Gene List:", mitoFile))
-#print(paste("Using GEM file?", usegem))
+print(paste("Excluding cells?", exclude))
 
 
 # Read in the provided config file and loop for each row.
@@ -113,8 +120,10 @@ for(i in 1:dim(toProcess)[1]){
   
   sampleID = as.character(toProcess[i,1])
   datadir = as.character(toProcess[i,2])
-  x10dir = paste0(datadir,"filtered_feature_bc_matrix")
-  savedir = paste0(datadir, "analysis_deadcells/")
+  if(exclude){excludeFile = as.character(toProcess[i,3])}
+  
+  x10dir = paste0(datadir,"/filtered_feature_bc_matrix")
+  savedir = paste0(datadir, "/analysis_deadcells/")
  # gemfile = paste0(datadir, "analysis/gem_classification.csv")
   
   print(paste("Saving file in: ", savedir))
@@ -122,10 +131,19 @@ for(i in 1:dim(toProcess)[1]){
   
   
   # Load the data set and create the Seurat object
-  scPDX.data <- Read10X(data.dir = paste0(datadir,"filtered_feature_bc_matrix"))
+  scPDX.data <- Read10X(data.dir = x10dir)
   # Initialize the Seurat object
   scPDX <- CreateSeuratObject(counts = scPDX.data, project = sampleID, min.cells = 0, min.features = 0)
   
+  if(exclude){
+    ## remove the cells to exclude first
+    excludeCells <- read.delim(excludeFile, header=FALSE)
+    
+    print(paste0("Excluding cells!!! Number of cells to be excluded: ", length(excludeCells$V1)))
+    print(paste0("Number of cells in dataset before:", length(scPDX$orig.ident)))
+    scPDX <- subset(x = scPDX, cells = excludeCells$V1, invert = TRUE)
+    print(paste0("Number of cells in dataset after:", length(scPDX$orig.ident)))
+  }
   # add in mito gene percents and print violin plots
 
   mito <- mitogene_ids[mitogene_ids %in% row.names(scPDX)]
@@ -138,7 +156,7 @@ for(i in 1:dim(toProcess)[1]){
   dev.off()
   
   
-  ## Identify MAD cutoff
+  ## Identify MAD cutoff using only those cells that are <=50% mt.
   my_mad <- mad(scPDX$percent.mt[scPDX$percent.mt <= 50])
   my_median <- median(scPDX$percent.mt[scPDX$percent.mt <= 50])
   
@@ -146,9 +164,9 @@ for(i in 1:dim(toProcess)[1]){
   
   #mad3mt <- mad(scPDX$percent.mt)*3+median(scPDX$percent.mt)
 
-  if(mad3mt > 50){
-	print(paste("WARNING! Cutoff claculated to be > 50%: ", mad3mt, "\nSetting cutoff to 50%."))
-	mad3mt <- 50
+  if(mad3mt > 25){
+	print(paste("WARNING! Cutoff calculated to be > 25%: ", mad3mt, "\nSetting cutoff to 25%."))
+	mad3mt <- 25
   }
   
   mad3countBelow <- median(log(scPDX$nCount_RNA)) - mad(log(scPDX$nCount_RNA))*3
