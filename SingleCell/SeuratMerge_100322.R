@@ -44,6 +44,27 @@ library(foreach)
 library(doParallel)
 library(future)
 library("biomaRt")
+library(dplyr)
+
+## The following file is saved on Fenn in case this URL goes dark: /vcu_gpfs2/home/alolex/src/WCCTR_RNASeq_Pipeline/SingleCell
+mouse_human_genes = read.csv("http://www.informatics.jax.org/downloads/reports/HOM_MouseHumanSequence.rpt",sep="\t")
+convert_human_to_mouse <- function(gene_list){
+  ## This function was copied from https://support.bioconductor.org/p/129636/
+  
+  output = c()
+  
+  for(gene in gene_list){
+    class_key = (mouse_human_genes %>% filter(Symbol == gene & Common.Organism.Name=="human"))[['DB.Class.Key']]
+    if(!identical(class_key, integer(0)) ){
+      mouse_genes = (mouse_human_genes %>% filter(DB.Class.Key == class_key & Common.Organism.Name=="mouse, laboratory"))[,"Symbol"]
+      for(mouse_gene in mouse_genes){
+        output = append(output,mouse_gene)
+      }
+    }
+  }
+  
+  return (output)
+}
 
 localtest = FALSE
 ###########################################
@@ -111,6 +132,9 @@ option_list = list(
   make_option(c("-a", "--numAnchors"), type="numeric", 
               help="Optional. Specify number of anchor genes to use. Default is 2000.",
               default = 2000, metavar="character"),
+  make_option(c("-p", "--species"), type="character", 
+              help="species to use for cell cycle scroing. Options are human or mouse (default = human).",
+              default = "human", metavar="character"),
   make_option(c("--saveH5"), type="logical", 
               help="Optional. Save merged and annotated Seruat object as a .h5Seruat file. Default saves as a .RData file.",
               default = FALSE, action = "store_true", metavar="logical"),
@@ -150,9 +174,17 @@ regressCC <- opt$regressCellCycle
 downsample <- opt$downsample
 exclude <- opt$exclude
 
-s.genes <- cc.genes.updated.2019$s.genes
-g2m.genes <- cc.genes.updated.2019$g2m.genes
-cc.genes <- union(s.genes, g2m.genes)
+if(species == "mouse"){
+  print("Converting human Cell Cycle Genes to MOUSE...")
+  s.genes <- convert_human_to_mouse(cc.genes.updated.2019$s.genes)
+  g2m.genes <- convert_human_to_mouse(cc.genes.updated.2019$g2m.genes)
+  cc.genes <- union(s.genes, g2m.genes)
+}else{
+  print("Using HUMAN Cell Cycle Genes...")
+  s.genes <- cc.genes.updated.2019$s.genes
+  g2m.genes <- cc.genes.updated.2019$g2m.genes
+  cc.genes <- union(s.genes, g2m.genes)
+}
 
 #### Ok, print out all the current running options as a summary.
 
