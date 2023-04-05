@@ -173,6 +173,7 @@ filtercells <- opt$filter
 regressCC <- opt$regressCellCycle
 downsample <- opt$downsample
 exclude <- opt$exclude
+species <- opt$species
 
 if(species == "mouse"){
   print("Converting human Cell Cycle Genes to MOUSE...")

@@ -150,6 +150,7 @@ saveH5 <- opt$saveH5
 mergeType <- opt$type
 features <- opt$features
 regressCC <- opt$regressCellCycle
+species <- opt$species
 
 if(species == "mouse"){
   print("Converting human Cell Cycle Genes to MOUSE...")
