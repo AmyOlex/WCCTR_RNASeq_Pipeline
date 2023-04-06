@@ -145,9 +145,6 @@ option_list = list(
               default = FALSE, action = "store_true", metavar="logical"),
   make_option(c("--regressCellCycle"), type="logical", 
               help="Optional. Regress out the cell cycle difference between S and G2M scores during normalization (Default = FALSE).",
-              default = FALSE, action = "store_true", metavar="logical"),
-  make_option(c("--exportCounts"), type="logical", 
-              help="Optional. Export the raw un-scaled read counts instead of the sclaed read counts.  (Default = FALSE).",
               default = FALSE, action = "store_true", metavar="logical")
 ); 
 
@@ -420,21 +417,16 @@ mid_time <- Sys.time()
 print("Saving to 10X...")
 ## Saving to 10X format:
 if(normalization == "SCT"){
-  if(exportCounts){
-    write10xCounts(x=seurat.merged@assays$SCT@counts, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_SCTdata_rawCounts.h5"), version="3")
-    write10xCounts(x=seurat.merged@assays$RNA@counts, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_rawCounts.h5"), version="3")
-    
-  }else{
-    write10xCounts(x=seurat.merged@assays$SCT@data, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_SCTdata_scaledCounts.h5"), version="3")
-    write10xCounts(x=seurat.merged@assays$RNA@data, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_scaledCounts.h5"), version="3")
-  }
+  write10xCounts(x=seurat.merged@assays$SCT@counts, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_SCTdata_rawCounts.h5"), version="3")
+  write10xCounts(x=seurat.merged@assays$RNA@counts, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_rawCounts.h5"), version="3")
+  write10xCounts(x=seurat.merged@assays$SCT@data, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_SCTdata_scaledCounts.h5"), version="3")
+  write10xCounts(x=seurat.merged@assays$RNA@data, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_scaledCounts.h5"), version="3")
+
   print(Sys.time() - mid_time)
 } else if(normalization == "LogNormalize"){
-  if(exportCounts){
-    write10xCounts(x=seurat.merged@assays$RNA@counts, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_rawCounts.h5"), version="3")
-  }else{
-    write10xCounts(x=seurat.merged@assays$RNA@data, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_scaledCounts.h5"), version="3")
-  }
+  write10xCounts(x=seurat.merged@assays$RNA@counts, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_rawCounts.h5"), version="3")
+  write10xCounts(x=seurat.merged@assays$RNA@data, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_scaledCounts.h5"), version="3")
+
   print(Sys.time() - mid_time)
 }
 
