@@ -58,15 +58,15 @@ convert_human_to_mouse <- function(gene_list){
 }
 
 
-localtest = FALSE
+localtest = TRUE
 ###########################################
 #### Local Testing Block
 if(localtest){
-  setwd("~/Desktop/CCTR_Git_Repos/WCCTR_RNASeq_Pipeline/SingleCell")
+  setwd("~/Google Drive/My Drive/Active Collaborations/0_PBos/2023_scRNASeq/onlyLuc_test_data")
   runID <- "TEST"
-  inFile <- "./debug_files/configtest.csv"
-  outDir <- "./debug_files/"
-  features <- "./debug_files/PI3K_features.txt"
+  inFile <- "./configtest.csv"
+  outDir <- "./"
+  features <- ""
   savedir <- paste0(outDir,runID)
   numCores <- 2
   numAnchors <- 2000
@@ -74,6 +74,8 @@ if(localtest){
   mergeType <- "simple"
   parallel <- FALSE
   saveH5 <- TRUE
+  species <- "mouse"
+  regressCC <- FALSE
   options(future.globals.maxSize = 3000 * 1024^2)
 }
 ###########################################
