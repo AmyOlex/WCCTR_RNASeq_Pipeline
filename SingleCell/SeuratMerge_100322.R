@@ -34,6 +34,8 @@
 ## UPDATED 10/03/22 updated to include filtering out dead cells from a provided list 
 ##         as well as not requiring the exact bc matrix directory name.
 ## UPDATED 12/12/2022 to also save an RDS file to save the Seurat object.
+## UPDATED 3/25/2023 to allow the exclusion of specific cells BEFORE running any dead cell analyses.
+## UPDATED 4/6/2023 to allow user to specify if they want the scaled RNA counts or the raw RNA counts to be output.  Previously is was only exporting the scaled counts.
 
 library(Seurat)
 #library(SeuratDisk)
@@ -70,21 +72,24 @@ localtest = FALSE
 ###########################################
 #### Local Testing Block
 if(localtest){
-  setwd("/Users/alolex/Desktop/HersheyFiles/")
+  setwd("~/Google Drive/My Drive/Active Collaborations/0_PBos/2023_scRNASeq/onlyLuc_test_data")
   runID <- "TEST"
-  inFile <- "/Users/alolex/Desktop/HersheyFiles/SeuratSimpleMerge_TEST_GRCh38_100322.csv"
-  outDir <- "./debug_files/"
-  features <- "./debug_files/PI3K_features.txt"
+  inFile <- "./configtest.csv"
+  outDir <- "./"
+  features <- ""
   savedir <- paste0(outDir,runID)
   numCores <- 2
   numAnchors <- 2000
   normalization <- "LogNormalize"
   mergeType <- "simple"
   parallel <- FALSE
-  filtercells <- TRUE
   saveH5 <- TRUE
+  species <- "mouse"
   regressCC <- FALSE
-  downsample <- 10
+  exclude <- ""
+  downsample <- 100
+  filtercells <- TRUE
+  exportCounts <- TRUE
   options(future.globals.maxSize = 3000 * 1024^2)
 }
 ###########################################
@@ -140,6 +145,9 @@ option_list = list(
               default = FALSE, action = "store_true", metavar="logical"),
   make_option(c("--regressCellCycle"), type="logical", 
               help="Optional. Regress out the cell cycle difference between S and G2M scores during normalization (Default = FALSE).",
+              default = FALSE, action = "store_true", metavar="logical"),
+  make_option(c("--exportCounts"), type="logical", 
+              help="Optional. Export the raw un-scaled read counts instead of the sclaed read counts.  (Default = FALSE).",
               default = FALSE, action = "store_true", metavar="logical")
 ); 
 
@@ -174,6 +182,7 @@ regressCC <- opt$regressCellCycle
 downsample <- opt$downsample
 exclude <- opt$exclude
 species <- opt$species
+exportCounts <- opt$exportCounts
 
 if(species == "mouse"){
   print("Converting human Cell Cycle Genes to MOUSE...")
@@ -411,11 +420,21 @@ mid_time <- Sys.time()
 print("Saving to 10X...")
 ## Saving to 10X format:
 if(normalization == "SCT"){
-  write10xCounts(x=seurat.merged@assays$SCT@data, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_SCTdata.h5"), version="3")
-  write10xCounts(x=seurat.merged@assays$RNA@data, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata.h5"), version="3")
+  if(exportCounts){
+    write10xCounts(x=seurat.merged@assays$SCT@counts, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_SCTdata_rawCounts.h5"), version="3")
+    write10xCounts(x=seurat.merged@assays$RNA@counts, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_rawCounts.h5"), version="3")
+    
+  }else{
+    write10xCounts(x=seurat.merged@assays$SCT@data, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_SCTdata_scaledCounts.h5"), version="3")
+    write10xCounts(x=seurat.merged@assays$RNA@data, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_scaledCounts.h5"), version="3")
+  }
   print(Sys.time() - mid_time)
 } else if(normalization == "LogNormalize"){
-  write10xCounts(x=seurat.merged@assays$RNA@data, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata.h5"), version="3")
+  if(exportCounts){
+    write10xCounts(x=seurat.merged@assays$RNA@counts, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_rawCounts.h5"), version="3")
+  }else{
+    write10xCounts(x=seurat.merged@assays$RNA@data, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_scaledCounts.h5"), version="3")
+  }
   print(Sys.time() - mid_time)
 }
 
