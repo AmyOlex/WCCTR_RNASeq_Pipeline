@@ -123,7 +123,10 @@ option_list = list(
               help="Optional. The percentage of cells to KEEP from each sample entered as an integer (eg. 20 for 20%). Default is 100.", 
               default = 100, metavar="character"),
   make_option(c("-e", "--exclude"), type="character", 
-              help="Optional. A TSV file with a list of barcodes that should be removed FIRST before downsampling is performed.  This was added as a specialty feature for merging very large datasets in batches. It needs to already be formatted with the numbered extensions for each sample.", 
+              help="Optional. A TSV file with a list of barcodes that should be removed FIRST before downsampling is performed (no header).  This was added as a specialty feature for merging very large datasets in batches. It needs to already be formatted with the numbered extensions for each sample.", 
+              default = "", metavar="character"),
+  make_option(c("-k", "--keep"), type="character", 
+              help="Optional. A TSV file with a list of barcodes that should be KEPT after merging (no header).  This was added as a specialty feature for merging very large datasets in batches. It needs to already be formatted with the numbered extensions for each sample.", 
               default = "", metavar="character"),
   make_option(c("--parallel"), type="logical", 
               help="Optional. Use paralellization for Merging and Integration (note, normalization of individual samples is always parallelized).",
@@ -236,6 +239,15 @@ if(exclude != ""){
   #sub <- df[df$V2 == 21, "V1"]
 }
 
+## Import the barcodes to keep if it exists
+barcodes_to_keep = ""
+if(keep != ""){
+  tmp <- read.delim(keep, header=FALSE)
+  barcodes_to_keep <- as.data.frame(t(as.data.frame(strsplit(tmp$V1,split = "-"))))
+  
+  #sub <- df[df$V2 == 21, "V1"]
+}
+
 #Register num cores for doParallel loop
 registerDoParallel(numCores)
 
@@ -276,6 +288,13 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
       print(paste0("Removing ",length(to_remove_this_sample)," cells to exclude from cells2keep."))
       cells2keep <- cells2keep[!(cells2keep$barcode %in% to_remove_this_sample),,drop=FALSE]
       print(paste0("After EXCLUSION keeping ", length(cells2keep$barcode), " cells."))
+    }
+    
+    if(barcodes_to_keep != ""){
+      to_keep_this_sample <- paste0(barcodes_to_keep[barcodes_to_keep$V2 == i, "V1"],"-1")
+      print(paste0("Keeping ",length(to_keep_this_sample)," cells to from cells2keep."))
+      cells2keep <- cells2keep[cells2keep$barcode %in% to_keep_this_sample,,drop=FALSE]
+      print(paste0("After FILTERING keeping ", length(cells2keep$barcode), " cells."))
     }
     
     samplesize <- floor((downsample/100)*length(cells2keep$barcode))
