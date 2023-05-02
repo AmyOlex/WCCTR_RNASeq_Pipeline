@@ -183,6 +183,7 @@ downsample <- opt$downsample
 exclude <- opt$exclude
 species <- opt$species
 exportCounts <- opt$exportCounts
+keep <- opt$keep
 
 if(species == "mouse"){
   print("Converting human Cell Cycle Genes to MOUSE...")
