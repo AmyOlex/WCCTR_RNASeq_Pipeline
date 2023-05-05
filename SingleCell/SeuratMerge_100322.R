@@ -282,7 +282,7 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
     print(paste0(toProcess[i,"SampleName"], ": Keeping ", length(cells2keep$barcode), " cells."))
     
     if(downsample < 100){
-      print(toProcess[i,"SampleName"], ": Downsampling..."))
+      print(toProcess[i,"SampleName"], ": Downsampling...")
     }
     
     if(barcodes_to_remove != ""){
