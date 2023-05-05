@@ -307,11 +307,11 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
       print(paste0(toProcess[i,"SampleName"], ": After DOWNSAMPLING keeping ", length(sampledcells), " cells."))
     
     #print(paste0("Filtering cells2keep using file: ", toProcess[i,"Cells2Keep"]))
-      print(head(sampledcells))
+      #print(head(sampledcells))
       h5 <- subset(h5, cells = sampledcells)
     }
     else{
-      h5 <- ""
+      h5 <- NA
     }
   }
   
@@ -331,24 +331,24 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   
   print(paste0(toProcess[i,"SampleName"], ": Renaming Cells..."))
   ## Rename the barcodes in each file with a count greater than 1
-  if(i > 1 && h5 != ""){
+  if(i > 1 && !is.na(h5)){
     h5 <- RenameCells(h5,  new.names = str_replace(names(h5$orig.ident), "-1", paste0("-",i)))
-    print(head(names(h5$orig.ident)))
+    #print(head(names(h5$orig.ident)))
   }
   
   mid_time <- Sys.time()
   
-  if(normalization == "SCT" && h5 != ""){
+  if(normalization == "SCT" && !is.na(h5)){
     print(paste0(toProcess[i,"SampleName"], ": SCTransform..."))
     ## Normalize each dataset with SCT
     h5 <- SCTransform(h5, verbose = FALSE)
   }
-  else if(normalization == "LogNormalize" && h5 != ""){
+  else if(normalization == "LogNormalize" && !is.na(h5)){
     print(paste0(toProcess[i,"SampleName"], ": LogNormalize..."))
     h5 <- NormalizeData(h5, normalization.method = "LogNormalize", verbose = FALSE)
-    print(paste0(toProcess[i,"SampleName"], ": Fariable Features"))
+    #print(paste0(toProcess[i,"SampleName"], ": Fariable Features"))
     h5 <- FindVariableFeatures(h5, selection.method = "vst", nfeatures = numAnchors, verbose = FALSE)
-    print(paste0(toProcess[i,"SampleName"], ": scaleData"))
+    #print(paste0(toProcess[i,"SampleName"], ": scaleData"))
     h5 <- ScaleData(h5, verbose = FALSE)
     print(h5)
     
@@ -366,7 +366,7 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
 ### Remove the empty string elements before moving on in order to remove any samples that were completly removed from the data set.
 print("Removing empty elements...")
 print(paste0("Seurat list length BEFORE: ", length(seurat_list)))
-seurat_list <- unlist(lapply(seurat_list, function(z){ z[z != ""]}))
+seurat_list <- unlist(lapply(seurat_list, function(z){ z[!is.na(z)]}))
 print(paste0("Seurat list length AFTER: ", length(seurat_list)))
 
 
