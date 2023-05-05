@@ -245,7 +245,8 @@ barcodes_to_keep = ""
 if(keep != ""){
   tmp <- read.delim(keep, header=FALSE)
   barcodes_to_keep <- as.data.frame(t(as.data.frame(strsplit(tmp$V1,split = "-"))))
-  
+  print("Keeping:")
+  print(dim(barcodes_to_keep))
   #sub <- df[df$V2 == 21, "V1"]
 }
 
@@ -293,9 +294,10 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
     
     if(barcodes_to_keep != ""){
       to_keep_this_sample <- paste0(barcodes_to_keep[barcodes_to_keep$V2 == i, "V1"],"-1")
-      print(paste0("Keeping ",length(to_keep_this_sample)," cells to from cells2keep."))
+      print(paste0("Keeping ",length(to_keep_this_sample)," cells from cells2keep."))
       cells2keep <- cells2keep[cells2keep$barcode %in% to_keep_this_sample,,drop=FALSE]
       print(paste0("After FILTERING keeping ", length(cells2keep$barcode), " cells."))
+      print(head(cells2keep))
     }
     
     samplesize <- floor((downsample/100)*length(cells2keep$barcode))
@@ -304,6 +306,7 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
     print(paste0("After DOWNSAMPLING keeping ", length(sampledcells), " cells."))
     
     #print(paste0("Filtering cells2keep using file: ", toProcess[i,"Cells2Keep"]))
+    print(head(sampledcells))
     h5 <- subset(h5, cells = sampledcells)
   }
   
@@ -325,6 +328,7 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   ## Rename the barcodes in each file with a count greater than 1
   if(i > 1){
     h5 <- RenameCells(h5,  new.names = str_replace(names(h5$orig.ident), "-1", paste0("-",i)))
+    print(head(names(h5$orig.ident)))
   }
   
   mid_time <- Sys.time()
