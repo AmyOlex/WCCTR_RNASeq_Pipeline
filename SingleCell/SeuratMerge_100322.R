@@ -259,12 +259,12 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   print(paste("Importing data for row", i, "from sample", toProcess[i,"SampleName"]))
   
   if(toProcess[i,"DataType"] == "Seurat"){
-    print("Loading Seurat h5 File...")
+    print(paste0(toProcess[i,"SampleName"], ": Loading Seurat h5 File..."))
     library(SeuratDisk)
     h5 <- LoadH5Seurat(toProcess[i,"SamplePath"])
   }
   else if(toProcess[i,"DataType"] == "10X"){
-    print("Loading 10X feature matrix...")
+    print(paste0(toProcess[i,"SampleName"], ": Loading 10X feature matrix..."))
     # Load the data set and create the Seurat object
     sc.data <- Read10X(data.dir = toProcess[i,"SamplePath"])  ## must point to the filtered_feature_bc_matrix directory.
     # Initialize the Seurat object
@@ -277,33 +277,33 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   }
   
   if(filtercells){
-    print("Loading list of cell barcodes to keep...")
+    print(paste0(toProcess[i,"SampleName"], ": Loading list of cell barcodes to keep..."))
     cells2keep <- read.delim(file=toProcess[i,"Cells2Keep"], header=TRUE) ##not sure if there is a header, check the file.
-    print(paste0("Keeping ", length(cells2keep$barcode), " cells."))
+    print(paste0(toProcess[i,"SampleName"], ": Keeping ", length(cells2keep$barcode), " cells."))
     
     if(downsample < 100){
-      print("Downsampling...")
+      print(toProcess[i,"SampleName"], ": Downsampling..."))
     }
     
     if(barcodes_to_remove != ""){
       to_remove_this_sample <- paste0(barcodes_to_remove[barcodes_to_remove$V2 == i, "V1"],"-1")
-      print(paste0("Removing ",length(to_remove_this_sample)," cells to exclude from cells2keep."))
+      print(paste0(toProcess[i,"SampleName"], ": Removing ",length(to_remove_this_sample)," cells to exclude from cells2keep."))
       cells2keep <- cells2keep[!(cells2keep$barcode %in% to_remove_this_sample),,drop=FALSE]
-      print(paste0("After EXCLUSION keeping ", length(cells2keep$barcode), " cells."))
+      print(paste0(toProcess[i,"SampleName"], ": After EXCLUSION keeping ", length(cells2keep$barcode), " cells."))
     }
     
     if(barcodes_to_keep != ""){
       to_keep_this_sample <- paste0(barcodes_to_keep[barcodes_to_keep$V2 == i, "V1"],"-1")
-      print(paste0("Keeping ",length(to_keep_this_sample)," cells from cells2keep."))
+      print(paste0(toProcess[i,"SampleName"], ": Keeping ",length(to_keep_this_sample)," cells from cells2keep."))
       cells2keep <- cells2keep[cells2keep$barcode %in% to_keep_this_sample,,drop=FALSE]
-      print(paste0("After FILTERING keeping ", length(cells2keep$barcode), " cells."))
+      print(paste0(toProcess[i,"SampleName"], ": After FILTERING keeping ", length(cells2keep$barcode), " cells."))
       print(head(cells2keep))
     }
     
     samplesize <- floor((downsample/100)*length(cells2keep$barcode))
     sampledcells <- sample(x = cells2keep$barcode, size = samplesize, replace = F)
     
-    print(paste0("After DOWNSAMPLING keeping ", length(sampledcells), " cells."))
+    print(paste0(toProcess[i,"SampleName"], ": After DOWNSAMPLING keeping ", length(sampledcells), " cells."))
     
     #print(paste0("Filtering cells2keep using file: ", toProcess[i,"Cells2Keep"]))
     print(head(sampledcells))
@@ -324,7 +324,7 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   #  h5 <- subset(h5, cells = sampledcells)
   #}
   
-  print("Renaming Cells...")
+  print(paste0(toProcess[i,"SampleName"], ": Renaming Cells..."))
   ## Rename the barcodes in each file with a count greater than 1
   if(i > 1){
     h5 <- RenameCells(h5,  new.names = str_replace(names(h5$orig.ident), "-1", paste0("-",i)))
@@ -334,16 +334,16 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   mid_time <- Sys.time()
   
   if(normalization == "SCT"){
-    print("SCTransform...")
+    print(paste0(toProcess[i,"SampleName"], ": SCTransform..."))
     ## Normalize each dataset with SCT
     h5 <- SCTransform(h5, verbose = FALSE)
   }
   else if(normalization == "LogNormalize"){
-    print("LogNormalize...")
+    print(paste0(toProcess[i,"SampleName"], ": LogNormalize..."))
     h5 <- NormalizeData(h5, normalization.method = "LogNormalize", verbose = FALSE)
-    print("Fariable Features")
+    print(paste0(toProcess[i,"SampleName"], ": Fariable Features"))
     h5 <- FindVariableFeatures(h5, selection.method = "vst", nfeatures = numAnchors, verbose = FALSE)
-    print("scaleData")
+    print(paste0(toProcess[i,"SampleName"], ": scaleData"))
     h5 <- ScaleData(h5, verbose = FALSE)
     print(h5)
     
@@ -355,7 +355,7 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   
   print(Sys.time() - mid_time)
   
-  h5
+  print(h5)
 }  ## end processing of each sample.
 
 print("Total Time to run sample normalization:")
