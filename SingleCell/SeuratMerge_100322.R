@@ -341,8 +341,11 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   else if(normalization == "LogNormalize"){
     print("LogNormalize...")
     h5 <- NormalizeData(h5, normalization.method = "LogNormalize", verbose = FALSE)
+    print("Fariable Features")
     h5 <- FindVariableFeatures(h5, selection.method = "vst", nfeatures = numAnchors, verbose = FALSE)
+    print("scaleData")
     h5 <- ScaleData(h5, verbose = FALSE)
+    print(h5)
     
   }
   
