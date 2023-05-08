@@ -53,8 +53,8 @@ keep <- opt$keep
 print("Summary of input options:\n")
 print(paste("Run Name: ", runID))
 print(paste("ConfigFile: ", inFile))
-print(paste("Merge Type: ", mergeType))
 print(paste("Output Directory:" , outDir))
+print(paste("Save Directory:" , savedir))
 print(paste("Keeping cells in file: ", keep))
 
 
