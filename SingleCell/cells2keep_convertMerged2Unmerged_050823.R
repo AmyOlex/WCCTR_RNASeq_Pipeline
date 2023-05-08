@@ -8,6 +8,9 @@
 ##         - the full list of cells to keep obtained from the merged Loupe browser
 ##         - An output directory.
 
+library(optparse)
+library(foreach)
+
 option_list = list(
   make_option(c("-r", "--runid"), type="character", default=NULL, 
               help="Required. A unique name for this analysis.", metavar="character"),
