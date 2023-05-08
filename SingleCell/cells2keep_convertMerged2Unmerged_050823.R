@@ -67,20 +67,24 @@ barcodes_to_keep = ""
 tmp <- read.delim(keep, header=FALSE)
 barcodes_to_keep <- as.data.frame(t(as.data.frame(strsplit(tmp$V1,split = "-"))))
 
-foreach(i=1:dim(toProcess)[1]){
+for(i in 1:dim(toProcess)[1]){
   to_keep_this_sample <- barcodes_to_keep[barcodes_to_keep$V2 == i,,drop=FALSE]
   if(length(to_keep_this_sample$V1)>0){
+    print(paste("Processing sample:", toProcess$SampleName[i]))
     to_keep_this_sample$barcode <- paste0(to_keep_this_sample$V1,"-1")  ##paste a "-1" on the end of each barcode for this sample.
     to_keep <- to_keep_this_sample[,"barcode",drop=FALSE]
     
-    keep_file_name <- paste0(dirname(toProcess$Cells2Keep), "/", toProcess$SampleName, "_", runID, ".csv")
+    keep_file_name <- paste0(dirname(toProcess$Cells2Keep[i]), "/", toProcess$SampleName[i], "_", runID, ".csv")
     toProcess[i,"Cells2Keep"] <- keep_file_name
-    
+    print("Writing CSV...")
     write.csv(to_keep, file=keep_file_name, quote = FALSE, row.names = FALSE)
   }
-  
-  write.csv(toProcess, file=paste0(savedir, "_", basename(inFile)), quote = FALSE, row.names = FALSE)
 }
+
+print("Completed. Writing config file...")
+write.csv(toProcess, file=paste0(savedir, "_", basename(inFile)), quote = FALSE, row.names = FALSE)
+
+print("All DONE")
 
 
 
