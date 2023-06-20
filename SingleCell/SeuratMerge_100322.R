@@ -381,7 +381,7 @@ print("Finding integration features...")
 #seurat_list
 if(parallel){
   ## Set Future Plan for asynchronous execution
-  plan("multiprocess", workers = numCores)
+  plan("multicore", workers = numCores)
 }
 
 plan()
