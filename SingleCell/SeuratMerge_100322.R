@@ -424,7 +424,8 @@ if(mergeType == "integration"){
   
   mid_time <- Sys.time()
   print("Performing integration...")
-  seurat.merged <- IntegrateData(anchorset = seurat.anchors, features.to.integrate = genes.to.integrate, normalization.method = normalization, verbose = FALSE)
+  #seurat.merged <- IntegrateData(anchorset = seurat.anchors, features.to.integrate = genes.to.integrate, normalization.method = normalization, verbose = FALSE)
+  seurat.merged <- IntegrateEmbeddings(anchorset = seurat.anchors, verbose = FALSE)
   print(Sys.time() - mid_time)
   
 } else if(mergeType == "simple"){
