@@ -67,11 +67,15 @@ temp_allgenes <- c(as.vector(sigdat[,"Basal_SC"]),
 temp_allgenes <- unique(temp_allgenes[!temp_allgenes == ""])
 
 #Read in the single cell RDS object as 'Mydata'
+print("Loading RData file...")
 load(inFile) ## must have a suriate object named seurat.merged saved
+
+print("RData file loaded, scaling data...")
 Mydata <- ScaleData(seurat.merged, features=temp_allgenes)
 tocalc<-as.data.frame(Mydata@assays$RNA@scale.data)
 
 #calculate mean scsubtype scores
+print("Calculating mean scsubtype scores...")
 outdat <- matrix(0,
                  nrow=ncol(sigdat),
                  ncol=ncol(tocalc),
@@ -97,13 +101,14 @@ is.num <- sapply(final, is.numeric);final[is.num] <- lapply(final[is.num], round
 finalm<-as.matrix(final)
 
 ##Scaling scores function before calling the highest Call
+print("Scaling scores function before calling the highest Call...")
 center_sweep <- function(x, row.w = rep(1, nrow(x))/nrow(x)) {
   get_average <- function(v) sum(v * row.w)/sum(row.w)
   average <- apply(x, 2, get_average)
   sweep(x, 2, average)
 }
 
-##Obtaining the highest call
+print("Obtaining the highest call...")
 finalmt<-as.data.frame(t(finalm))
 finalm.sweep.t<-center_sweep(finalmt)
 Finalnames<-colnames(finalm.sweep.t)[max.col(finalm.sweep.t,ties.method="first")]
@@ -111,6 +116,7 @@ finalm.sweep.t$SCSubtypeCall <- Finalnames
 ##get barcode column for Loupe Annotation output
 finalm.sweep.t$barcode <- row.names(finalm.sweep.t)
 
+print("Saving data...")
 ##Writing out output files (rownames remain the same for both)
 write.table(finalm.sweep.t[,c("barcode","SCSubtypeCall")], paste0(outDir,runID,"_SCSubtypes_Annotation.txt"), sep="\t", quote = FALSE, row.names = FALSE)
 write.table(finalm.sweep.t[,c("barcode","SCSubtypeCall","Basal_SC","Her2E_SC","LumA_SC","LumB_SC")], paste0(outDir,runID,"_SCSubtypes_Scores.txt"), sep="\t", quote = FALSE, row.names = FALSE)
