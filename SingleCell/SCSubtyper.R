@@ -52,7 +52,7 @@ inFile <- opt$infile
 print("Summary of input options:\n")
 print(paste("Run Name: ", runID))
 print(paste("SignatureFile: ", sigFile))
-print(paste("RData File: ", infile))
+print(paste("RData File: ", inFile))
 print(paste("Output Directory:" , outDir))
 
 print("Starting Subtype Analysis...")
