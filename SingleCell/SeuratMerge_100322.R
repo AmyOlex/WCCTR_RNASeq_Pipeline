@@ -72,16 +72,16 @@ localtest = FALSE
 ###########################################
 #### Local Testing Block
 if(localtest){
-  setwd("~/Google Drive/My Drive/Active Collaborations/0_PBos/2023_scRNASeq/onlyLuc_test_data")
+  setwd("/Users/alolex/Desktop/Harrell_LocalTesting")
   runID <- "TEST"
-  inFile <- "./configtest.csv"
+  inFile <- "./configtest2.csv"
   outDir <- "./"
   features <- ""
   savedir <- paste0(outDir,runID)
   numCores <- 2
   numAnchors <- 2000
   normalization <- "LogNormalize"
-  mergeType <- "simple"
+  mergeType <- "integration"
   parallel <- FALSE
   saveH5 <- TRUE
   species <- "mouse"
@@ -90,6 +90,7 @@ if(localtest){
   downsample <- 100
   filtercells <- TRUE
   exportCounts <- TRUE
+  keep <- ""
   options(future.globals.maxSize = 3000 * 1024^2)
 }
 ###########################################
@@ -342,7 +343,7 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   if(normalization == "SCT"){
     print(paste0(toProcess[i,"SampleName"], ": SCTransform..."))
     ## Normalize each dataset with SCT
-    h5 <- SCTransform(h5, verbose = FALSE)
+    h5 <- SCTransform(h5, vst.flavor = "v2", verbose = FALSE)
   }
   else if(normalization == "LogNormalize"){
     print(paste0(toProcess[i,"SampleName"], ": LogNormalize..."))
@@ -425,7 +426,7 @@ if(mergeType == "integration"){
   mid_time <- Sys.time()
   print("Performing integration...")
   #seurat.merged <- IntegrateData(anchorset = seurat.anchors, features.to.integrate = genes.to.integrate, normalization.method = normalization, verbose = FALSE)
-  seurat.merged <- IntegrateEmbeddings(anchorset = seurat.anchors, verbose = FALSE)
+  seurat.merged <- IntegrateEmbeddings(anchorset = seurat.anchors, verbose = TRUE, reduction = "pcaproject")
   print(Sys.time() - mid_time)
   
 } else if(mergeType == "simple"){
