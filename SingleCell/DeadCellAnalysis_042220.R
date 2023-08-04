@@ -153,6 +153,7 @@ for(i in 1:dim(toProcess)[1]){
   
   sampleID = as.character(toProcess[i,1])
   datadir = as.character(toProcess[i,2])
+  
   if(exclude){excludeFile = as.character(toProcess[i,3])}
   
   x10dir = paste0(datadir,"/filtered_feature_bc_matrix")
@@ -170,14 +171,14 @@ for(i in 1:dim(toProcess)[1]){
   
   # Run ambient RNA adjustment FIRST, before excluding or doing any further processing
   if(ambientRNAadjust){
-    print(toProcess[i,"SampleName"], ": Ambient RNA Adjusment...")
+    print(toProcess[i,1], ": Ambient RNA Adjusment...")
     
     
     ## add Soup Groups to filtered feature data
     scPDX <- add_soup_groups(scPDX)
     
     ##load in unfiltered raw data (must be in 10X format)
-    raw_10x <- Read10X(data.dir = toProcess[i,"raw10Xdata"])
+    raw_10x <- Read10X(data.dir = paste0(datadir,"/raw_feature_bc_matrix"))
     rownames(raw_10x) <- gsub("_", "-", rownames(raw_10x))
     
     sc1 <- SoupChannel(raw1, scPDX@assays$RNA@counts)
