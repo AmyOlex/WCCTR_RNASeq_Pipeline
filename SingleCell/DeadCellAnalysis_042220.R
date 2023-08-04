@@ -171,7 +171,7 @@ for(i in 1:dim(toProcess)[1]){
   
   # Run ambient RNA adjustment FIRST, before excluding or doing any further processing
   if(ambientRNAadjust){
-    print(toProcess[i,1], ": Ambient RNA Adjusment...")
+    print("Ambient RNA Adjusment...")
     
     
     ## add Soup Groups to filtered feature data
