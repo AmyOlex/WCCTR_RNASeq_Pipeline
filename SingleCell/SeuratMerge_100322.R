@@ -49,7 +49,7 @@ library(doParallel)
 library(future)
 library("biomaRt")
 library(dplyr)
-library(SoupX)
+
 
 ### DEFINE FUNCTIONS
 ## The following file is saved on Fenn in case this URL goes dark: /vcu_gpfs2/home/alolex/src/WCCTR_RNASeq_Pipeline/SingleCell
