@@ -72,20 +72,7 @@ convert_human_to_mouse <- function(gene_list){
   return (output)
 }
 
-get_soup_groups <- function (sobj){
-  sobj <- NormalizeData(sobj, verbose = FALSE)
-  sobj <- FindVariableFeatures(sobj, selection.method = "vst", nfeatures = 2000, verbose=FALSE)
-  sobj <- ScaleData(sobj, verbose=FALSE)
-  sobj <- RunPCA(sobj, npcs = 20, verbose = FALSE)
-  sobj <- FindNeighbors(sobj, dims=1:20) #1:20
-  sobj <- FindClusters(sobj, resolution = 0.4, verbose=FALSE)
-  return(sobj@meta.data[['seurat_clusters']])
-}
 
-add_soup_groups <- function (sobj){
-  sobj$soup_group <- get_soup_groups(sobj)
-  return(sobj)
-}
 
 
 
@@ -170,9 +157,6 @@ option_list = list(
               default = FALSE, action = "store_true", metavar="logical"),
   make_option(c("--regressCellCycle"), type="logical", 
               help="Optional. Regress out the cell cycle difference between S and G2M scores during normalization (Default = FALSE).",
-              default = FALSE, action = "store_true", metavar="logical"),
-  make_option(c("--ambientRNAadjust"), type="logical", 
-              help="Optional. Uses SoupX to adjust for ambient RNA contamination. MUST have a column in input CSV named raw10Xdata that lists the full path to the raw_feature_bc_matrix file in 10X format. (Default = FALSE).",
               default = FALSE, action = "store_true", metavar="logical")
 ); 
 
@@ -209,7 +193,7 @@ exclude <- opt$exclude
 species <- opt$species
 exportCounts <- opt$exportCounts
 keep <- opt$keep
-ambientRNAadjust <- opt$ambientRNAadjust
+
 
 if(species == "mouse"){
   print("Converting human Cell Cycle Genes to MOUSE...")
@@ -239,7 +223,7 @@ print(paste("Saving h5Seurat file: ", saveH5))
 print(paste("Regressing out S-G2M cell cycle score: ", regressCC))
 print(paste("Percent of cells to keep in downsampling: ", downsample))
 print(paste("Excluding cells in file: ", exclude))
-print(paste("Adjusting for ambient RNA: ", ambientRNAadjust))
+
 
 if(!parallel){
   print("WARNING: Seurat merge and integration functions will NOT be parallized.  Use the --parallel flag to parallelize these functions.")
@@ -303,29 +287,7 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
     quit(1)
   }
   
-  if(ambientRNAadjust){
-    print(toProcess[i,"SampleName"], ": Ambient RNA Adjusment...")
-    ## add Soup Groups to filtered feature data
-    h5 <- add_soup_groups(h5)
-    
-    ##load in unfiltered raw data (must be in 10X format)
-    raw_10x <- Read10X(data.dir = toProcess[i,"raw10Xdata"])
-    rownames(raw_10x) <- gsub("_", "-", rownames(raw_10x))
-    
-    sc1 <- SoupChannel(raw1, h5@assays$RNA@counts)
-    sc1 <- setClusters(sc1, h5$soup_group)
-    
-    out1 <- adjustCounts(sc1, roundToInt = TRUE)
-    h5[['originalcounts']] <- CreateAssayObject(counts = h5@assays$RNA@counts)
-    h5@assays$RNA@counts <- out1
-    #recalculate nCounts, nFeature, and create the UMAP plot
-    h5$nCount_RNA = colSums(x = h5, slot = "counts")
-    h5$nFeature_RNA = colSums(x = GetAssayData(object = h5, slot = "counts") > 0)
-    
-    print("Original Total Read Count: ", sum(h5@assays$originalcounts@counts))
-    print("Adjusted Total Read Count: ", sum(h5@assays$RNA@counts))
-    
-  }
+
   
   if(filtercells){
     print(paste0(toProcess[i,"SampleName"], ": Loading list of cell barcodes to keep..."))

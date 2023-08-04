@@ -13,13 +13,33 @@
 #
 # UPDATE 3/30/23: Added an option to do a hard filter on a known subset of cells by providing a barcode list of cells to EXCLUDE.
 #                 These cells will be excluded BEFORE any deadcell filtering is performed.
+#
+# UPDATE 8/4/23: Added an option to adjust read counts for ambient RNA.  Must provide the location of the 10X formatted raw_feature_bc_matrix files.
+#
 
 library("Seurat")
 library("readr")
 library("png")
 #library(dplyr)
-
 library("optparse")
+
+## define functions
+get_soup_groups <- function (sobj){
+  sobj <- NormalizeData(sobj, verbose = FALSE)
+  sobj <- FindVariableFeatures(sobj, selection.method = "vst", nfeatures = 2000, verbose=FALSE)
+  sobj <- ScaleData(sobj, verbose=FALSE)
+  sobj <- RunPCA(sobj, npcs = 20, verbose = FALSE)
+  sobj <- FindNeighbors(sobj, dims=1:20) #1:20
+  sobj <- FindClusters(sobj, resolution = 0.4, verbose=FALSE)
+  return(sobj@meta.data[['seurat_clusters']])
+}
+
+add_soup_groups <- function (sobj){
+  sobj$soup_group <- get_soup_groups(sobj)
+  return(sobj)
+}
+
+
 
 option_list = list(
   make_option(c("-r", "--runid"), type="character", default=NULL, 
@@ -46,7 +66,11 @@ option_list = list(
   
   make_option(c("-o", "--outdir"), type="character", 
               help="output directory for results report (must already exist). Default is current directory.",
-              default = "./", metavar="character")
+              default = "./", metavar="character"),
+  
+  make_option(c("--ambientRNAadjust"), type="logical", 
+              help="Optional. Uses SoupX to adjust for ambient RNA contamination. MUST have a column in input CSV named raw10Xdata that lists the full path to the raw_feature_bc_matrix file in 10X format. (Default = FALSE).",
+              default = FALSE, action = "store_true", metavar="logical")
   
 #  make_option(c("--usegem"), type="logical", 
 #              help="flags script to utilize the gem files associated with the inputs to create a second cells2keep file that includes all mouse cells from combined PDX samples.",
@@ -94,6 +118,7 @@ inFile <- opt$configfile
 reportDir <- opt$outdir
 reportName <- paste0(reportDir, runID, "_DeadCellReport.txt")
 exclude <- opt$excludeCells
+ambientRNAadjust <- opt$ambientRNAadjust
 
 #### Ok, print out all the current running options as a summary.
 
@@ -103,7 +128,7 @@ print(paste("ConfigFile:", inFile))
 print(paste("Report Output:", reportName))
 print(paste("Mitochandria Gene List:", mitoFile))
 print(paste("Excluding cells?", exclude))
-
+print(paste("Adjusting for ambient RNA: ", ambientRNAadjust))
 
 # Read in the provided config file and loop for each row.
 toProcess = read.table(inFile, header=FALSE, sep="\t")
@@ -141,6 +166,35 @@ for(i in 1:dim(toProcess)[1]){
   scPDX.data <- Read10X(data.dir = x10dir)
   # Initialize the Seurat object
   scPDX <- CreateSeuratObject(counts = scPDX.data, project = sampleID, min.cells = 0, min.features = 0)
+  
+  # Run ambient RNA adjustment FIRST, before excluding or doing any further processing
+  if(ambientRNAadjust){
+    print(toProcess[i,"SampleName"], ": Ambient RNA Adjusment...")
+    
+    
+    ## add Soup Groups to filtered feature data
+    scPDX <- add_soup_groups(scPDX)
+    
+    ##load in unfiltered raw data (must be in 10X format)
+    raw_10x <- Read10X(data.dir = toProcess[i,"raw10Xdata"])
+    rownames(raw_10x) <- gsub("_", "-", rownames(raw_10x))
+    
+    sc1 <- SoupChannel(raw1, scPDX@assays$RNA@counts)
+    sc1 <- setClusters(sc1, scPDX$soup_group)
+    
+    out1 <- adjustCounts(sc1, roundToInt = TRUE)
+    scPDX[['originalcounts']] <- CreateAssayObject(counts = scPDX@assays$RNA@counts)
+    scPDX@assays$RNA@counts <- out1
+    #recalculate nCounts, nFeature, and create the UMAP plot
+    scPDX$nCount_RNA = colSums(x = scPDX, slot = "counts")
+    scPDX$nFeature_RNA = colSums(x = GetAssayData(object = scPDX, slot = "counts") > 0)
+    
+    print("Original Total Read Count: ", sum(scPDX@assays$originalcounts@counts))
+    print("Adjusted Total Read Count: ", sum(scPDX@assays$RNA@counts))
+    reads_before_ambiant <- sum(scPDX@assays$originalcounts@counts)
+    reads_after_ambiant <- sum(scPDX@assays$RNA@counts)
+    
+  }
   
   if(exclude){
     ## remove the cells to exclude first
@@ -229,9 +283,15 @@ for(i in 1:dim(toProcess)[1]){
   
   #Save Report
   f <- file(paste0(savedir, runID, "_", sampleID, "_report.txt"), 'w')
-  writeLines(c("KeptCells\tDeadCells\t%Removed\tMitoCutoff\tlog(nFeatureRange)\tlog(nCountRange)",
-               paste(length(cellstokeep), length(deadcells), round((length(deadcells)/(length(cellstokeep)+length(deadcells)))*100, digits=2), round(mad3mt, digits=2), paste0(round(mad3featureBelow, digits=2), "-",round(mad3featureAbove, digits=2)), paste0(round(mad3countBelow, digits=2),"-",round(mad3countAbove, digits=2)),  sep="\t")), f)
-  close(f)
+  if(ambientRNAadjust){
+    writeLines(c("KeptCells\tDeadCells\t%Removed\tMitoCutoff\tlog(nFeatureRange)\tlog(nCountRange)\tTotalReadsBeforeAmbiantAdjustment\tTotalReadsAfterAmbiantAdjustment",
+                 paste(length(cellstokeep), length(deadcells), round((length(deadcells)/(length(cellstokeep)+length(deadcells)))*100, digits=2), round(mad3mt, digits=2), paste0(round(mad3featureBelow, digits=2), "-",round(mad3featureAbove, digits=2)), paste0(round(mad3countBelow, digits=2),"-",round(mad3countAbove, digits=2)), reads_before_ambiant, reads_after_ambiant,  sep="\t")), f)
+    
+  } else {
+    writeLines(c("KeptCells\tDeadCells\t%Removed\tMitoCutoff\tlog(nFeatureRange)\tlog(nCountRange)",
+                 paste(length(cellstokeep), length(deadcells), round((length(deadcells)/(length(cellstokeep)+length(deadcells)))*100, digits=2), round(mad3mt, digits=2), paste0(round(mad3featureBelow, digits=2), "-",round(mad3featureAbove, digits=2)), paste0(round(mad3countBelow, digits=2),"-",round(mad3countAbove, digits=2)),  sep="\t")), f)
+  }
+    close(f)
   
   writeLines(c(paste(runID, sampleID, length(cellstokeep), length(deadcells), round((length(deadcells)/(length(cellstokeep)+length(deadcells)))*100, digits=2), round(mad3mt, digits=2), paste0(round(mad3featureBelow, digits=2), "-",round(mad3featureAbove, digits=2)), paste0(round(mad3countBelow, digits=2),"-",round(mad3countAbove, digits=2)),  sep="\t")), g)
   
