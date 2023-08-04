@@ -181,7 +181,7 @@ for(i in 1:dim(toProcess)[1]){
     raw_10x <- Read10X(data.dir = paste0(datadir,"/raw_feature_bc_matrix"))
     rownames(raw_10x) <- gsub("_", "-", rownames(raw_10x))
     
-    sc1 <- SoupChannel(raw1, scPDX@assays$RNA@counts)
+    sc1 <- SoupChannel(raw_10x, scPDX@assays$RNA@counts)
     sc1 <- setClusters(sc1, scPDX$soup_group)
     
     out1 <- adjustCounts(sc1, roundToInt = TRUE)
