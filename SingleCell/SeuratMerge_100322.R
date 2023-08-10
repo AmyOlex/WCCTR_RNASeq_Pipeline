@@ -324,7 +324,7 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
     sc1 <- SoupChannel(raw_10x, h5@assays$RNA@counts)
     sc1 <- setClusters(sc1, h5$soup_group)
     
-    png(file = paste0(savedir, sampleID, "_SoupXestimates.png"), width = 1000, height = 500, res = 100)
+    png(file = paste0(savedir, toProcess[i,"SampleName"], "_SoupXestimates.png"), width = 1000, height = 500, res = 100)
       sc1 <- autoEstCont(sc1, doPlot=TRUE)
     dev.off()
     
@@ -337,8 +337,8 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
     
     print(paste0("Original Total Read Count: ", sum(h5@assays$originalcounts@counts)))
     print(paste0("Adjusted Total Read Count: ", sum(h5@assays$RNA@counts)))
-    reads_before_ambiant <- sum(h5@assays$originalcounts@counts)
-    reads_after_ambiant <- sum(h5@assays$RNA@counts)
+    #reads_before_ambiant <- sum(h5@assays$originalcounts@counts)
+    #reads_after_ambiant <- sum(h5@assays$RNA@counts)
     
   }
   
