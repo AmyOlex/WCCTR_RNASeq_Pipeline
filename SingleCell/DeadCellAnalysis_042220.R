@@ -184,6 +184,10 @@ for(i in 1:dim(toProcess)[1]){
     sc1 <- SoupChannel(raw_10x, scPDX@assays$RNA@counts)
     sc1 <- setClusters(sc1, scPDX$soup_group)
     
+    png(file = paste0(savedir, sampleID, "_SoupXestimates.png"), width = 1000, height = 500, res = 100)
+      sc1 <- autoEstCont(sc1, doPlot=TRUE)
+    dev.off()
+    
     out1 <- adjustCounts(sc1, roundToInt = TRUE)
     scPDX[['originalcounts']] <- CreateAssayObject(counts = scPDX@assays$RNA@counts)
     scPDX@assays$RNA@counts <- out1
