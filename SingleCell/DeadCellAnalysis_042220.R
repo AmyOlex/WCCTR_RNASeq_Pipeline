@@ -195,8 +195,8 @@ for(i in 1:dim(toProcess)[1]){
     scPDX$nCount_RNA = colSums(x = scPDX, slot = "counts")
     scPDX$nFeature_RNA = colSums(x = GetAssayData(object = scPDX, slot = "counts") > 0)
     
-    print("Original Total Read Count: ", sum(scPDX@assays$originalcounts@counts))
-    print("Adjusted Total Read Count: ", sum(scPDX@assays$RNA@counts))
+    print(paste0("Original Total Read Count: ", sum(scPDX@assays$originalcounts@counts)))
+    print(paste0("Adjusted Total Read Count: ", sum(scPDX@assays$RNA@counts)))
     reads_before_ambiant <- sum(scPDX@assays$originalcounts@counts)
     reads_after_ambiant <- sum(scPDX@assays$RNA@counts)
     
