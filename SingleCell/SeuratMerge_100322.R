@@ -177,7 +177,7 @@ option_list = list(
               help="Optional. Regress out the cell cycle difference between S and G2M scores during normalization (Default = FALSE).",
               default = FALSE, action = "store_true", metavar="logical"),
   make_option(c("--ambientRNAadjust"), type="logical", 
-              help="Optional. Uses SoupX to adjust for ambient RNA contamination. MUST have a column in input CSV named raw10Xdata that lists the full path to the raw_feature_bc_matrix file in 10X format. (Default = FALSE).",
+              help="Optional. Uses SoupX to adjust for ambient RNA contamination. MUST have a column in input CSV named 'raw10Xdata' that lists the full path to the raw_feature_bc_matrix file in 10X format. (Default = FALSE).",
               default = FALSE, action = "store_true", metavar="logical")
 ); 
 
@@ -214,6 +214,7 @@ exclude <- opt$exclude
 species <- opt$species
 exportCounts <- opt$exportCounts
 keep <- opt$keep
+ambientRNAadjust <- opt$ambientRNAadjust
 
 
 if(species == "mouse"){
