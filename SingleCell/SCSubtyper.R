@@ -70,9 +70,12 @@ temp_allgenes <- unique(temp_allgenes[!temp_allgenes == ""])
 print("Loading RData file...")
 load(inFile) ## must have a suriate object named seurat.merged saved
 
-print("RData file loaded, scaling data...")
-Mydata <- ScaleData(seurat.merged, features=temp_allgenes)
-tocalc<-as.data.frame(Mydata@assays$RNA@scale.data)
+#print("RData file loaded, scaling data...")
+#Mydata <- ScaleData(seurat.merged, features=temp_allgenes)
+#tocalc<-as.data.frame(Mydata@assays$RNA@scale.data)
+
+print("RData file loaded, skipping scaling and using raw RNA reads...")
+tocalc<-as.data.frame(seurat.merged@assays$RNA@counts)
 
 #calculate mean scsubtype scores
 print("Calculating mean scsubtype scores...")
