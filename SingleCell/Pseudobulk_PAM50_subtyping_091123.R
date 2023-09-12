@@ -96,7 +96,7 @@ setwd(outDir)
 #inFile <- "100422_Visvader-MiniSubset_30_SimpleMerge_GRCh38_Seurat_simpleMerge_LogNormalize_Annotated.RDS"
 
 ## Import Seurat Object
-seurat.obj <- load(inFile)
+seurat.obj <- readRDS(inFile)
 
 ## Generate pseudobulk gene expression data
 pseudobulk <- AggregateExpression(seurat.obj, assays="RNA", group.by = groups)
