@@ -22,13 +22,13 @@ getGenefuEntrezAnnots <- function(my_keys){
   ### get Entrez IDs
   gene.list <- mapIds(org.Hs.eg.db, keys = my_keys, column = "ENTREZID", keytype = "SYMBOL")
   ## remove NA's
-  gene.list.filt <- gene.list[which(!is.na(gene.list))]
+  gene.list.f <- gene.list[which(!is.na(gene.list))]
   ## convert to dataframe and add columns compatable with genefu
-  gene.list.filt <- as.data.frame(gene.list.filt)
-  names(gene.list.filt) <- "EntrezGene.ID"
-  gene.list.filt$Gene.Symbol <- row.names(gene.list.filt)
+  gene.list.f <- as.data.frame(gene.list.f)
+  names(gene.list.f) <- "EntrezGene.ID"
+  gene.list.f$Gene.Symbol <- row.names(gene.list.f)
   
-  return(gene.list.filt)
+  return(gene.list.f)
 }
 
 formatPAM50Predictions <- function(preds){
@@ -123,7 +123,7 @@ normalized_counts_filt <- normalized_counts[row.names(gene.list.filt),]
 
 ## sanity check when debugging
 ## There are 47 of the 50 genes for the PAM50 signature availiable in the data set:
-#length((which(rownames(normalized_counts_filt) %in% rownames(pam50.robust$centroids.map))))
+print(length((which(rownames(normalized_counts_filt) %in% rownames(pam50.robust$centroids.map)))) )
 
 
 ## run PAM50 classification
