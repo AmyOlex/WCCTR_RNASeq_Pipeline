@@ -9,6 +9,7 @@ library("DESeq2")
 library("dplyr")
 library("org.Hs.eg.db")
 library("AnnotationDbi")
+library("reshape2")
 #library("xtable")
 #library("rmeta")
 #library("Biobase")
@@ -98,6 +99,9 @@ setwd(outDir)
 ## Import Seurat Object
 seurat.obj <- readRDS(inFile)
 
+## Load pam50 data from genefu
+data(pam50.robust)
+
 ## Generate pseudobulk gene expression data
 pseudobulk <- AggregateExpression(seurat.obj, assays="RNA", group.by = groups)
 
@@ -129,8 +133,8 @@ print(length((which(rownames(normalized_counts_filt) %in% rownames(pam50.robust$
 ## run PAM50 classification
 pam50_predictions_all <- molecular.subtyping(sbt.model = 'pam50', data = t(normalized_counts_filt), annot = gene.list.filt, do.mapping = FALSE)
 
-pam50_predictions_all$subtype.crisp
-pam50_predictions_all$subtype.proba
+#pam50_predictions_all$subtype.crisp
+#pam50_predictions_all$subtype.proba
 
 predictions <- formatPAM50Predictions(preds = pam50_predictions_all$subtype.crisp)
 
