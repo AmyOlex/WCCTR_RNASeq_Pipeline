@@ -75,7 +75,7 @@ load(inFile) ## must have a suriate object named seurat.merged saved
 #tocalc<-as.data.frame(Mydata@assays$RNA@scale.data)
 
 print("RData file loaded, skipping scaling and using raw RNA reads...")
-tocalc<-as.data.frame(seurat.merged@assays$RNA@counts)
+tocalc<-as.data.frame(seurat.merged@assays$RNA@scale.data)
 
 #calculate mean scsubtype scores
 print("Calculating mean scsubtype scores...")
