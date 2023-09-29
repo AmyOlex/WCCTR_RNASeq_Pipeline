@@ -23,6 +23,7 @@ library("png")
 #library(dplyr)
 library("optparse")
 library("SoupX")
+library("DropletUtils")
 
 ## define functions
 get_soup_groups <- function (sobj){
