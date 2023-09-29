@@ -303,7 +303,7 @@ for(i in 1:dim(toProcess)[1]){
     print("Saving to 10X...")
     ## Saving to 10X format:  
     ##write10xCounts(x=scPDX@assays$RNA@counts, path=paste0(datadir, "ambientAdjusted_rawCounts.h5"), version="3")
-    SaveH5Seurat(seurat.merged, filename=paste0(datadir, "ambientAdjusted_rawCounts.h5Seurat"), overwrite = TRUE)
+    SaveH5Seurat(scPDX, filename=paste0(datadir, "ambientAdjusted_rawCounts.h5Seurat"), overwrite = TRUE)
     
     
   } else {
