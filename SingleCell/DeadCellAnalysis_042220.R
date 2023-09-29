@@ -298,6 +298,10 @@ for(i in 1:dim(toProcess)[1]){
                  paste(length(cellstokeep), length(deadcells), round((length(deadcells)/(length(cellstokeep)+length(deadcells)))*100, digits=2), round(mad3mt, digits=2), paste0(round(mad3featureBelow, digits=2), "-",round(mad3featureAbove, digits=2)), paste0(round(mad3countBelow, digits=2),"-",round(mad3countAbove, digits=2)), reads_before_ambiant, reads_after_ambiant,  sep="\t")), f)
     writeLines(c(paste(runID, sampleID, length(cellstokeep), length(deadcells), round((length(deadcells)/(length(cellstokeep)+length(deadcells)))*100, digits=2), round(mad3mt, digits=2), paste0(round(mad3featureBelow, digits=2), "-",round(mad3featureAbove, digits=2)), paste0(round(mad3countBelow, digits=2),"-",round(mad3countAbove, digits=2)), reads_before_ambiant, reads_after_ambiant,  sep="\t")), g)
     
+    print("Saving to 10X...")
+    ## Saving to 10X format:  
+    write10xCounts(x=scPDX@assays$RNA@counts, path=paste0(datadir, "ambientAdjusted_rawCounts.h5"), version="3")
+    
   } else {
     writeLines(c("KeptCells\tDeadCells\t%Removed\tMitoCutoff\tlog(nFeatureRange)\tlog(nCountRange)",
                  paste(length(cellstokeep), length(deadcells), round((length(deadcells)/(length(cellstokeep)+length(deadcells)))*100, digits=2), round(mad3mt, digits=2), paste0(round(mad3featureBelow, digits=2), "-",round(mad3featureAbove, digits=2)), paste0(round(mad3countBelow, digits=2),"-",round(mad3countAbove, digits=2)),  sep="\t")), f)
