@@ -15,7 +15,9 @@
 #                 These cells will be excluded BEFORE any deadcell filtering is performed.
 #
 # UPDATE 8/4/23: Added an option to adjust read counts for ambient RNA.  Must provide the location of the 10X formatted raw_feature_bc_matrix files.
-#
+# UPDATE 10/13/23: Added a filter so that if the mito cutoff is less than 5% it uses 25% automatically.  
+#                   I actually had a sample where the cutoff was zero!  For these PDX samples we know that 25% is ok.
+
 
 library("Seurat")
 library("readr")
@@ -240,6 +242,11 @@ for(i in 1:dim(toProcess)[1]){
   if(mad3mt > 25){
 	print(paste("WARNING! Cutoff calculated to be > 25%: ", mad3mt, "\nSetting cutoff to 25%."))
 	mad3mt <- 25
+  }
+  
+  if(mad3mt < 5){
+    print(paste("WARNING! Cutoff calculated to be < 5%: ", mad3mt, "\nSetting cutoff to 25%."))
+    mad3mt <- 25
   }
   
   mad3countBelow <- median(log(scPDX$nCount_RNA)) - mad(log(scPDX$nCount_RNA))*3
