@@ -70,5 +70,5 @@ OUTDIR=$DIR/00_fastqc
 cat $INPUT | while read file
 do 
 	echo $file;
-	/home/alolex/bin/FastQC/fastqc -t 4 -o $OUTDIR --noextract $file;
+	fastqc -t 4 -o $OUTDIR --noextract $file;
 done
