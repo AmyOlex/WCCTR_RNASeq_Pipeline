@@ -75,11 +75,11 @@ mkdir -p 01_rrna_filtered
 
 OUTDIR=$DIR/01_rrna_filtered
 
-cat $INPUT | while read file
+cat $INPUT | while read file1 file2
 do 
-	prefix=$(basename $file .fastq.gz)
-	echo "Processing $file ...";
-	bbduk.sh in=$file outm=$OUTDIR/$prefix.ribo.fq outu=$OUTDIR/$prefix.nonribo.fq ref=$REF stats=$OUTDIR/$prefix.rRNAStats.txt
+	prefix=$(basename $file1 .fastq.gz)
+	echo "Processing $file1 ...";
+	bbduk.sh in1=$file1 in2=$file2 outm=$OUTDIR/$prefix.ribo.fq outu=$OUTDIR/$prefix.nonribo.fq ref=$REF stats=$OUTDIR/$prefix.rRNAStats.txt
 	gzip $OUTDIR/$prefix.ribo.fq
 	gzip $OUTDIR/$prefix.nonribo.fq
 done
