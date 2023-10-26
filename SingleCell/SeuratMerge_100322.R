@@ -146,7 +146,7 @@ option_list = list(
   make_option(c("-f", "--features"), type="character", 
               help="Optional. A list of features to use for the PCA, UMAP, tSNE, and Clustering.", 
               default = "", metavar="character"),
-  make_option(c("-s", "--downsample"), type="integer", 
+  make_option(c("-s", "--downsample"), type="numeric", 
               help="Optional. The percentage of cells to KEEP from each sample entered as an integer (eg. 20 for 20%). Default is 100.", 
               default = 100, metavar="character"),
   make_option(c("-e", "--exclude"), type="character", 
