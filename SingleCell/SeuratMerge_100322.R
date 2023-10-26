@@ -342,6 +342,10 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
     
   }
   
+  if(downsample < 100){
+    print(toProcess[i,"SampleName"], ": Downsampling before debugging...")
+  }
+  
   if(filtercells){
     print(paste0(toProcess[i,"SampleName"], ": Loading list of cell barcodes to keep..."))
     cells2keep <- read.delim(file=toProcess[i,"Cells2Keep"], header=TRUE) ##not sure if there is a header, check the file.
