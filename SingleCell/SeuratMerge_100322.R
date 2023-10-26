@@ -369,6 +369,7 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
     
     if(length(cells2keep$barcode) > 0){
       samplesize <- floor((downsample/100)*length(cells2keep$barcode))
+      set.seed(i)
       sampledcells <- sample(x = cells2keep$barcode, size = samplesize, replace = F)
     
       print(paste0(toProcess[i,"SampleName"], ": After DOWNSAMPLING keeping ", length(sampledcells), " cells."))
