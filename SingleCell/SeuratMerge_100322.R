@@ -343,7 +343,7 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   }
   
   if(downsample < 100){
-    print(toProcess[i,"SampleName"], ": Downsampling before debugging...")
+    print(paste0(toProcess[i,"SampleName"], ": Downsampling before debugging..."))
   }
   
   if(filtercells){
@@ -353,7 +353,7 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
     print(paste0(toProcess[i,"SampleName"], ": Downsampling to ", downsample, " percent."))
     
     if(downsample < 100){
-      print(toProcess[i,"SampleName"], ": Downsampling...")
+      print(paste0(toProcess[i,"SampleName"], ": Downsampling..."))
     }
     
     if(barcodes_to_remove != ""){
