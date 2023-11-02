@@ -294,7 +294,12 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   if(toProcess[i,"DataType"] == "Seurat"){
     print(paste0(toProcess[i,"SampleName"], ": Loading Seurat h5 File..."))
     library(SeuratDisk)
-    h5 <- LoadH5Seurat(toProcess[i,"SamplePath"])
+    if(file.exists(toProcess[i,"SamplePath"])){ 
+      h5 <- LoadH5Seurat(toProcess[i,"SamplePath"]) 
+    }
+    else{ 
+      print(paste("ERROR, file not found: ",toProcess[i,"SampleName"]) ) 
+    }
   }
   else if(toProcess[i,"DataType"] == "10X"){
     print(paste0(toProcess[i,"SampleName"], ": Loading 10X feature matrix..."))
@@ -344,7 +349,14 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   
   if(filtercells){
     print(paste0(toProcess[i,"SampleName"], ": Loading list of cell barcodes to keep..."))
-    cells2keep <- read.delim(file=toProcess[i,"Cells2Keep"], header=TRUE) ##not sure if there is a header, check the file.
+    
+    if(file.exists(toProcess[i,"Cells2Keep"])){
+      cells2keep <- read.delim(file=toProcess[i,"Cells2Keep"], header=TRUE) ##not sure if there is a header, check the file.
+    }
+    else {
+      print(paste("ERROR, file not found: ", toProcess[i,"Cells2Keep"]))
+    }
+    
     print(paste0(toProcess[i,"SampleName"], ": Keeping ", length(cells2keep$barcode), " cells."))
     print(paste0(toProcess[i,"SampleName"], ": Downsampling to ", downsample, " percent."))
     
