@@ -294,8 +294,8 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   if(toProcess[i,"DataType"] == "Seurat"){
     print(paste0(toProcess[i,"SampleName"], ": Loading Seurat h5 File..."))
     library(SeuratDisk)
-    if(file.exists(toProcess[i,"SamplePath"])){ 
-      h5 <- LoadH5Seurat(toProcess[i,"SamplePath"]) 
+    if(file.exists(trimws(toProcess[i,"SamplePath"]))){ 
+      h5 <- LoadH5Seurat(trimws(toProcess[i,"SamplePath"])) 
     }
     else{ 
       print(paste("ERROR, file not found: ",toProcess[i,"SampleName"]) ) 
@@ -350,8 +350,8 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   if(filtercells){
     print(paste0(toProcess[i,"SampleName"], ": Loading list of cell barcodes to keep..."))
     
-    if(file.exists(toProcess[i,"Cells2Keep"])){
-      cells2keep <- read.delim(file=toProcess[i,"Cells2Keep"], header=TRUE) ##not sure if there is a header, check the file.
+    if(file.exists(trimws(toProcess[i,"Cells2Keep"]))){
+      cells2keep <- read.delim(trimws(file=toProcess[i,"Cells2Keep"]), header=TRUE) ##not sure if there is a header, check the file.
     }
     else {
       print(paste("ERROR, file not found: ", toProcess[i,"Cells2Keep"]))
