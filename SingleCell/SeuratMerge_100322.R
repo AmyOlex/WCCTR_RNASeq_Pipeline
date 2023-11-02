@@ -349,9 +349,9 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   
   if(filtercells){
     print(paste0(toProcess[i,"SampleName"], ": Loading list of cell barcodes to keep..."))
-    
-    if(file.exists(trimws(toProcess[i,"Cells2Keep"]))){
-      cells2keep <- read.delim(trimws(file=toProcess[i,"Cells2Keep"]), header=TRUE) ##not sure if there is a header, check the file.
+    file_name <- trimws(toProcess[i,"Cells2Keep"])
+    if(file.exists(file_name)){
+      cells2keep <- read.delim(file=file_name, header=TRUE) ##not sure if there is a header, check the file.
     }
     else {
       print(paste("ERROR, file not found: ", toProcess[i,"Cells2Keep"]))
