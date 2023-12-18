@@ -69,11 +69,13 @@ cd $OUTDIR
 
 echo "Starting Salmon on "`date`
 
-cat $INPUT | while read file1 file2
+cat $INPUT | while read file1
 do
 	echo "Starting read counting of $file1 on "`date` 
-	prefix=$(basename $file1 _1.fastq.gz)
-	/vcu_gpfs2/home/mccbnfolab/src/salmon-1.6.0_linux_x86_64/bin/salmon quant -i /vcu_gpfs2/home/mccbnfolab/ref_genomes/refgenie/alias/hg38/salmon_sa_index/default/ -l A -1 $file1 -2 $file2 -o $OUTDIR/$prefix
+	#prefix=$(basename $file1 _1.fastq.gz)
+ 	prefix=$(basename $file1 .Aligned.toTranscriptome.out.bam)
+	#/vcu_gpfs2/home/mccbnfolab/src/salmon-1.6.0_linux_x86_64/bin/salmon quant -i /vcu_gpfs2/home/mccbnfolab/ref_genomes/refgenie/alias/hg38/salmon_sa_index/default/ -l A -1 $file1 -2 $file2 -o $OUTDIR/$prefix
+	/vcu_gpfs2/home/mccbnfolab/src/salmon-1.6.0_linux_x86_64/bin/salmon quant -t /vcu_gpfs2/home/harrell_lab/refGenomes/merged_GDC_GRCh38_GRCm38_XMLV/merged_GDC_GRCh38_GRCm38.transcripts.fa -l A -a $file1 -o $OUTDIR/$prefix
 	echo $prefix
 	echo "Finished read counting of $file1 on "`date`
 done
