@@ -74,7 +74,7 @@ echo "Starting FeatureCounts on "`date`
 cat $INPUT | while read file
 do
 	echo "Starting read counting of $file on "`date` 
-	prefix=$(basename $file .Aligned.sortedByCoord.out.bam)
+	prefix=$(basename $file _001.trimmed.Aligned.out.bam)
 	featureCounts -t gene -g gene_id -p -s 0 --countReadPairs -T 48 -a /vcu_gpfs2/home/harrell_lab/refGenomes/merged_GDC_GRCh38_GRCm38_XMLV/merged_gencode_humanV22_mouseVM12.annotation.gtf -o $OUTDIR/$file_featureCounts.txt $file
 	
 	echo $prefix
