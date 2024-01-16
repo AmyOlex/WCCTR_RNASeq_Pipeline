@@ -67,7 +67,6 @@ mkdir -p $OUTDIR
 
 cd $OUTDIR
 
-mamba activate subread
 
 echo "Starting FeatureCounts on "`date`
 
