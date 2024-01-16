@@ -87,7 +87,15 @@ if (is.null(opt$targetlib)){
 #targetlib <- "/Users/alolex/Desktop/CCTR_LOCAL_Analysis_noBackups/Harrell_LocalTesting/CancerOnlySubsets/ER_051023_Visvader-plus-PDX_MASTER_CancerEROnly_SimpleMerge_GRCh38_Seurat_simpleMerge_LogNormalize_LibraryID.csv"
 #annot <- "/Users/alolex/Desktop/CCTR_LOCAL_Analysis_noBackups/Harrell_LocalTesting/SCSubtyper_testing/062823_Visvader-plus-PDX_MASTER_CancerOnly_SimpleMerge_SCSubtypes_Annotation.csv"
 
+#### 11/6/23 Runs
+#setwd("~/Desktop/CCTR_LOCAL_Analysis_noBackups/Harrell_LocalTesting/CancerOnlySubsets/Oct2023_Merges")
+#sourcelib <- "101023_rerun_Visvader-plus-PDX_MASTER_CancerOnly_SimpleMerge_GRCh38_Seurat_simpleMerge_LogNormalize_LibraryID.csv"
+#outDir <- "./"
 
+## to ER Cancer Only - SCSubtype
+#outFile <- "ER_101023_Visvader-plus-PDX_MASTER_CancerEROnly_SimpleMerge_GRCh38_Seurat_simpleMerge_LogNormalize_SCSubtypes_Annotation_PortedFrom-101023CancerOnly.csv"
+#targetlib <- "ER_101023_Visvader-plus-PDX_MASTER_CancerEROnly_SimpleMerge_GRCh38_Seurat_simpleMerge_LogNormalize_LibraryID.csv"
+#annot <- "101023_rerun_Visvader-plus-PDX_MASTER_CancerOnly_SimpleMerge_PreLogNorm_SCSubtypes_Annotation.csv"
 
 sourcelib <- opt$sourcelib
 outDir <- paste0(opt$outdir,"/")
