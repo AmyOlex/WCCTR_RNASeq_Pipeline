@@ -8,13 +8,13 @@
 ## Three data files are then written out for each species: gene metadata, count data, TPM values.
 ## This script does nothing else except merge and format the raw expression values and calculate the TPM values for mouse and human individually.
 
-library(tximport)
+#library(tximport)
 library(readr)
 library(AnnotationHub)
-library(ensembldb)
-library(RNASeqBits)
+#library(ensembldb)
+#library(RNASeqBits)
 library(NMF)
-library(limma)
+#library(limma)
 library(optparse)
 
 calc.tpm.fromFeatureCounts <- function(metadata, data){
