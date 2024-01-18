@@ -17,6 +17,26 @@ library(NMF)
 library(limma)
 library(optparse)
 
+calc.tpm.fromFeatureCounts <- function(metadata, data){
+  
+  RPK <- matrix(0, nrow=dim(data)[1], ncol=dim(data)[2])
+  
+  for(row in 1:dim(data)[1]){
+    for(col in 1:dim(data)[2]){
+      RPK[row,col] <- data[row,col]/metadata$Length[row]
+    }
+  }
+  
+  ##Calculate the sums of each column and divide by 1000000
+  scale_factor <- colSums(RPK)/1000000
+  
+  ##Now divide all values in each column by the scaling factor
+  TPM <- t(t(RPK)/scale_factor)
+  colnames(TPM) <- colnames(data)
+  row.names(TPM) <- rownames(data)
+  return(as.data.frame(TPM))
+}
+
 localtest = FALSE
 ###########################################
 #### Local Testing Block
