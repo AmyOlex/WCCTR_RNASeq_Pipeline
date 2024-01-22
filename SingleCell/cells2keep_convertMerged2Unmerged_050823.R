@@ -77,7 +77,11 @@ for(i in 1:dim(toProcess)[1]){
     keep_file_name <- paste0(dirname(toProcess$Cells2Keep[i]), "/", toProcess$SampleName[i], "_", runID, ".csv")
     toProcess[i,"Cells2Keep"] <- keep_file_name
     print("Writing CSV...")
-    write.csv(to_keep, file=keep_file_name, quote = FALSE, row.names = FALSE)
+    #write.csv(to_keep, file=keep_file_name, quote = FALSE, row.names = FALSE)
+  }
+  else{
+    print(paste("No barcodes, excluding sample: ",toProcess$SampleName[i]))
+    toProcess <- toProcess[-i,]
   }
 }
 
