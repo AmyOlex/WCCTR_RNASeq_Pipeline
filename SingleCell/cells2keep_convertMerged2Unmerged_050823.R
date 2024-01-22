@@ -81,7 +81,7 @@ for(i in 1:dim(toProcess)[1]){
   }
   else{
     print(paste("No barcodes, excluding sample: ",toProcess$SampleName[i]))
-    toProcess <- toProcess[-i,]
+    toProcess[i,"Cells2Keep"] <- "NO-CELLS-DELETE"
   }
 }
 
