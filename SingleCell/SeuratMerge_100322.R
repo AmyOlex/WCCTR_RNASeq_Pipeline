@@ -37,6 +37,7 @@
 ## UPDATED 3/25/2023 to allow the exclusion of specific cells BEFORE running any dead cell analyses.
 ## UPDATED 4/6/2023 to allow user to specify if they want the scaled RNA counts or the raw RNA counts to be output.  Previously is was only exporting the scaled counts.
 ## UPDATED 8/2/2023 to allow user option to do ambient RNA adjustments of read counts BEFORE any other processing is done on the data.
+## UPDATED 1/23/2024 to utilize the new LoupeR package to directly generate a Loupe file.
 
 
 library(Seurat)
@@ -50,6 +51,8 @@ library(future)
 library("biomaRt")
 library(dplyr)
 library("SoupX")
+library("loupeR")
+library("hdf5r")
 
 
 ### DEFINE FUNCTIONS
@@ -698,6 +701,9 @@ if(features != ""){
 
 print(Sys.time() - mid_time)
 
+print("Saving Loupe file...")
+create_loupe_from_seurat(seurat.merged, output_dir = outDir, output_name = paste0(runID,"_Seurat_",mergeType,"Merge_",normalization,"_Annotated.cloupe"))
+
 
 print("Saving Annotated Seurat File...")
 mid_time <- Sys.time()
@@ -719,6 +725,8 @@ if(saveH5){
     saveRDS(seurat.merged, file = paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated.rds"), compress = TRUE)
   }
 }
+
+
 
 
 print(Sys.time() - mid_time)
