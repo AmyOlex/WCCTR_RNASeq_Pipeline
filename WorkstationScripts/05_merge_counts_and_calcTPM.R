@@ -43,9 +43,9 @@ localtest = FALSE
 if(localtest){
   setwd("/Users/alolex/Desktop/CCTR_LOCAL_Analysis_noBackups/Harrell_LocalTesting/featureCount_testing")
   runID <- "TEST"
-  inFile <- "./merge_counts_testing_config.txt"
+  inFile <- "./05_featureCountFiles_local_TEST.csv"
   outDir <- "./"
-  species <- "pdx"
+  species <- "PDX"
   savedir <- paste0(outDir,runID)
   IdCol <- "Geneid"
   options(future.globals.maxSize = 3000 * 1024^2)
@@ -172,14 +172,17 @@ if(species %in% c("PDX", "HUMAN")){
   # Extract metadata columns and count columns
   merged_meta_h <- merged_counts[merged_counts$species == "HUMAN", 1:9]
   merged_counts_h <- merged_counts[merged_counts$species == "HUMAN",10:length(merged_counts)]
-  merged_counts_h_annot <- cbind(merged_meta_h[,"Ensembl",drop=FALSE], merged_counts_h)
+  merged_counts_h_annot <- merge(merged_meta_h[,c("Ensembl","geneSym"),drop=FALSE], merged_counts_h, by="row.names")[,-1]
   
   # Calculate the TPM values
   TPM_h <- calc.tpm.fromFeatureCounts(merged_meta_h, merged_counts_h)
-  TMP_h_annot <- merge(merged_meta_h[,"Ensembl", drop=FALSE], TPM_h, by="row.names")[,-1]
+  Log2TPM_h <- log2(TPM_h+1)
+  TMP_h_annot <- merge(merged_meta_h[,c("Ensembl","geneSym"), drop=FALSE], TPM_h, by="row.names")[,-1]
+  Log2TPM_h_annot <- merge(merged_meta_h[,c("Ensembl","geneSym"), drop=FALSE], Log2TPM_h, by="row.names")[,-1]
   
   # Save files
   write.table(TMP_h_annot, file=paste0(savedir, "_Human_TPM.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
+  write.table(Log2TPM_h_annot, file=paste0(savedir, "_Human_Log2TPM.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
   write.table(merged_counts_h_annot, file=paste0(savedir, "_Human_counts.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
   write.table(merged_meta_h, file=paste0(savedir, "_Human_geneMetaData.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
   
@@ -190,14 +193,17 @@ if(species %in% c("PDX", "MOUSE")){
   # Extract metadata columns and count columns
   merged_meta_m <- merged_counts[merged_counts$species == "MOUSE", 1:9]
   merged_counts_m <- merged_counts[merged_counts$species == "MOUSE",10:length(merged_counts)]
-  merged_counts_m_annot <- cbind(merged_meta_m[,"Ensembl",drop=FALSE], merged_counts_m)
+  merged_counts_m_annot <- merge(merged_meta_m[,c("Ensembl","geneSym"),drop=FALSE], merged_counts_m, by="row.names")[,-1]
   
   # Calculate the TPM values
   TPM_m <- calc.tpm.fromFeatureCounts(merged_meta_m, merged_counts_m)
-  TMP_m_annot <- merge(merged_meta_m[,"Ensembl", drop=FALSE], TPM_m, by="row.names")[,-1]
+  Log2TPM_m <- log2(TPM_m+1)
+  TMP_m_annot <- merge(merged_meta_m[,c("Ensembl","geneSym"), drop=FALSE], TPM_m, by="row.names")[,-1]
+  Log2TPM_m_annot <- merge(merged_meta_m[,c("Ensembl","geneSym"), drop=FALSE], Log2TPM_m, by="row.names")[,-1]
   
   # Save files
   write.table(TMP_m_annot, file=paste0(savedir, "_Mouse_TPM.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
+  write.table(Log2TPM_m_annot, file=paste0(savedir, "_Mouse_Log2TPM.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
   write.table(merged_counts_m_annot, file=paste0(savedir, "_Mouse_counts.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
   write.table(merged_meta_m, file=paste0(savedir, "_Mouse_geneMetaData.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
   
