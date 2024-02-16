@@ -7,14 +7,14 @@
 ## Gene names and the preferred sample names are appended to the TPM and raw count data frames.
 ## Three data files are then written out for each species: gene metadata, count data, TPM values.
 ## This script does nothing else except merge and format the raw expression values and calculate the TPM values for mouse and human individually.
+##
+## UPDATES:
+## 2/16/24 - Updating script to account for technical replicates.  If these are found, then they are summed into a single column before being added to the count matrix.
 
-#library(tximport)
+
 library(readr)
 library(AnnotationHub)
-#library(ensembldb)
-#library(RNASeqBits)
 library(NMF)
-#library(limma)
 library(optparse)
 
 calc.tpm.fromFeatureCounts <- function(metadata, data){
@@ -37,13 +37,90 @@ calc.tpm.fromFeatureCounts <- function(metadata, data){
   return(as.data.frame(TPM))
 }
 
+
+## Initializes the counts matrix to have all the annotation columns from Feature Counts.
+init.merged.counts <- function(fname){
+
+  ## Import Annotation DB to get gene Symbol identifiers.
+  ah <- AnnotationHub()
+  orgs <- subset(ah, ah$rdataclass == "OrgDb")
+  
+  if(species %in% c("PDX", "HUMAN")){ orgdb_h <- query(orgs, "Homo sapiens")[[1]] }
+  if(species %in% c("PDX", "MOUSE")){ orgdb_m <- query(orgs, "Mus musculus")[[1]] }
+  
+  ## load in the first file of the list
+  raw <- read.table(fname, header=TRUE, sep="\t", stringsAsFactors = FALSE)
+  ## get all the annotations columns.
+  merged_counts <- raw[,1:6]
+  ## Remove the version identifier from the Ensemble ID
+  merged_counts$Ensembl = gsub("\\..*$", "",merged_counts[[IdCol]])
+  
+  geneSym_h <- NULL
+  geneSym_m <- NULL
+  
+  if(species=="PDX"){
+    merged_counts$species <- sapply(merged_counts$Chr, function(x) strsplit(x, '_')[[1]][1])
+  }
+  else{
+    merged_counts$species <- rep(species,nrow(merged_counts))
+  }
+  
+  if(species %in% c("PDX", "HUMAN")){
+    k_h <- merged_counts[merged_counts$species == "HUMAN","Ensembl"]
+    geneSym_h <- as.data.frame(mapIds(orgdb_h, keys=k_h, column="SYMBOL", keytype="ENSEMBL", multiVals="first"))
+    names(geneSym_h) <- c("geneSym")
+  }
+  
+  if(species %in% c("PDX", "MOUSE")){
+    k_m <- merged_counts[merged_counts$species == "MOUSE","Ensembl"]
+    geneSym_m <- as.data.frame(mapIds(orgdb_m, keys=k_m, column="SYMBOL", keytype="ENSEMBL", multiVals="first"))
+    names(geneSym_m) <- c("geneSym")
+  }
+  
+  geneSym <- rbind(geneSym_h, geneSym_m)
+  stopifnot(all(merged_counts$Ensembl == row.names(geneSym)))
+  
+  merged_counts$geneSym <- geneSym[,1]
+  
+  stopifnot(all(merged_counts[[IdCol]] == raw[[IdCol]]))
+  
+  return(merged_counts)
+}
+
+
+## Sums all count columns that have the same sample name. These are assumed to be technical replicates.
+combine.tech.rep.counts <- function(sample_name, file_list){
+  
+  ##get all rows with the same sample name
+  sampdata <- file_list[file_list$Name == sample_name,]
+  sampcounts <- NA
+  for(i in seq_along(sampdata$Name)){
+    rawdata <- read.table(sampdata$File[i], header = TRUE)
+    row.names(rawdata) <- rawdata$Geneid
+    
+    if(all(is.na(sampcounts))){
+      sampcounts <- rawdata[,7,drop=FALSE]
+    }  
+    else{
+      sampcounts <- sampcounts+rawdata[,7,drop=FALSE]
+    }
+  }
+  
+  names(sampcounts) <- sname
+  return(sampcounts)
+  
+}
+
+
+
+
 localtest = FALSE
 ###########################################
 #### Local Testing Block
 if(localtest){
   setwd("/Users/alolex/Desktop/CCTR_LOCAL_Analysis_noBackups/Harrell_LocalTesting/featureCount_testing")
-  runID <- "TEST"
-  inFile <- "./05_featureCountFiles_local_TEST.csv"
+  runID <- "TECHREPTEST"
+  inFile <- "./05_featureCountFiles_local_techreps.csv"
   outDir <- "./"
   species <- "PDX"
   savedir <- paste0(outDir,runID)
@@ -109,59 +186,18 @@ toProcess = read.table(inFile, header=TRUE, sep=",", stringsAsFactors = FALSE)
 ## check to ensure they exist
 stopifnot(all(file.exists(toProcess$File)))
 
-## initiate the merged count variable
-merged_counts <- ""
 
-## Import Annotation DB to get gene Symbol identifiers.
-ah <- AnnotationHub()
-orgs <- subset(ah, ah$rdataclass == "OrgDb")
 
-if(species %in% c("PDX", "HUMAN")){ orgdb_h <- query(orgs, "Homo sapiens")[[1]] }
-if(species %in% c("PDX", "MOUSE")){ orgdb_m <- query(orgs, "Mus musculus")[[1]] }
 
-## Process each file and merge it's read counts into the same dataframe
-for (i in seq_along(toProcess$File)) {
-  message(i, " ", appendLF = FALSE)
-  raw <- read.table(toProcess$File[i], header=TRUE, sep="\t", stringsAsFactors = FALSE)
-  names(raw)[7] <- make.names(toProcess$Name[i])
-  
-  if (i == 1) {
-    ## get all the annotations I will need imported.
-    merged_counts <- raw[,1:6]
-    ## Remove the version identifier from the Ensemble ID
-    merged_counts$Ensembl = gsub("\\..*$", "",merged_counts[[IdCol]])
-    
-    geneSym_h <- NULL
-    geneSym_m <- NULL
-    
-    if(species=="PDX"){
-      merged_counts$species <- sapply(merged_counts$Chr, function(x) strsplit(x, '_')[[1]][1])
-    }
-    else{
-      merged_counts$species <- rep(species,nrow(merged_counts))
-    }
+## initiate the merged count matrix with the gene annotations
+merged_counts <- init.merged.counts(toProcess$File[1])
 
-    if(species %in% c("PDX", "HUMAN")){
-      k_h <- merged_counts[merged_counts$species == "HUMAN","Ensembl"]
-      geneSym_h <- as.data.frame(mapIds(orgdb_h, keys=k_h, column="SYMBOL", keytype="ENSEMBL", multiVals="first"))
-      names(geneSym_h) <- c("geneSym")
-    }
-    
-    if(species %in% c("PDX", "MOUSE")){
-      k_m <- merged_counts[merged_counts$species == "MOUSE","Ensembl"]
-      geneSym_m <- as.data.frame(mapIds(orgdb_m, keys=k_m, column="SYMBOL", keytype="ENSEMBL", multiVals="first"))
-      names(geneSym_m) <- c("geneSym")
-    }
-    
-    geneSym <- rbind(geneSym_h, geneSym_m)
-    stopifnot(all(merged_counts$Ensembl == row.names(geneSym)))
-    
-    merged_counts$geneSym <- geneSym[,1]
-    
-  }
-  stopifnot(all(merged_counts[[IdCol]] == raw[[IdCol]]))
-  merged_counts <- merge(x = merged_counts, y = raw[,c(1,7)], by = IdCol, all.x=TRUE, sort=FALSE)
-  
+## Process each file and merge it's read counts into the same data frame
+## Technical replicates are assumed to have the same sample name and are summed.
+for (sname in unique(toProcess$Name)) {
+  message(sname, " ", appendLF = FALSE)
+  scounts <- combine.tech.rep.counts(sname, toProcess)
+  merged_counts <- merge(x = merged_counts, y = scounts, by.x = IdCol, by.y = "row.names", all.x=TRUE, sort=FALSE)
 }
 
 # Assign Row Names
