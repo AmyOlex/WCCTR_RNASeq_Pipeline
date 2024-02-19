@@ -48,9 +48,15 @@ options(future.globals.maxSize = 100000 * 1024^2)
 
 start_time <- Sys.time()
 
-#infile = "/Users/alolex/Desktop/CCTR_LOCAL_Analysis_noBackups/Harrell_LocalTesting/Pseudobulk_PAM50_subtyping/100422_Visvader-MiniSubset_30_SimpleMerge_GRCh38_Seurat_simpleMerge_LogNormalize_Annotated.RData"
-#WD = "/Users/alolex/Desktop/CCTR_LOCAL_Analysis_noBackups/Harrell_LocalTesting/Pseudobulk_PAM50_subtyping/"
-#setwd(WD)
+debug = FALSE
+if(debug){
+  runID = "TEST"
+  inFile = "/Users/alolex/Desktop/CCTR_LOCAL_Analysis_noBackups/Harrell_LocalTesting/Pseudobulk_PAM50_subtyping/100422_Visvader-MiniSubset_30_SimpleMerge_GRCh38_Seurat_simpleMerge_LogNormalize_Annotated.RDS"
+  outDir = "/Users/alolex/Desktop/CCTR_LOCAL_Analysis_noBackups/Harrell_LocalTesting/Pseudobulk_PAM50_subtyping/"
+  WD = "/Users/alolex/Desktop/CCTR_LOCAL_Analysis_noBackups/Harrell_LocalTesting/Pseudobulk_PAM50_subtyping/"
+  groups = "orig.ident"
+  setwd(WD)
+}
 
 option_list = list(
   make_option(c("-r", "--runid"), type="character", default=NULL, 
@@ -93,8 +99,6 @@ print(paste("Group By:" , groups))
 
 print("Starting Pseudo PAM50 Subtype Analysis...")
 setwd(outDir)
-
-#inFile <- "100422_Visvader-MiniSubset_30_SimpleMerge_GRCh38_Seurat_simpleMerge_LogNormalize_Annotated.RDS"
 
 ## Import Seurat Object
 seurat.obj <- readRDS(inFile)
@@ -143,6 +147,8 @@ meta_data <- merge(meta_data, predictions, by="row.names")
 row.names(meta_data) <- meta_data$Row.names
 meta_data <- meta_data[,-1]
 
+## save prediction probabilities
+write.table(pam50_predictions_all$subtype.proba, paste0(outDir,runID,"_pseudoPAM50_Probabilities.csv"), sep=",", quote = FALSE, row.names = TRUE)
 
 
 ## run ClaudinLow classification (https://rdrr.io/bioc/genefu/man/claudinLow.html)
@@ -181,6 +187,9 @@ names(predsCL) <- c("claudinLow")
 meta_data <- merge(meta_data, predsCL, by="row.names")
 row.names(meta_data) <- meta_data$Row.names
 meta_data <- meta_data[,-1]
+
+## save distances
+write.table(cl_class$distances, paste0(outDir,runID,"_pseudoClaudinLow_Distances.csv"), sep=",", quote = FALSE, row.names = TRUE)
 
 
 ###### Now add in the annotations for the PAM50 subtyping back into the Seurat object as well as printing out the annotation CSV
