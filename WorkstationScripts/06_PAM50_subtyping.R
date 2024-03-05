@@ -54,7 +54,7 @@ localtest = FALSE
 if(localtest){
   setwd("/Users/alolex/Desktop/CCTR_LOCAL_Analysis_noBackups/Harrell_LocalTesting/bulk_PAM50_testing/")
   runID <- "TEST"
-  tpmFile <- "BulkRNASeq2024_AllGenes_02.16.24_Human_counts.tsv"
+  countFile <- "BulkRNASeq2024_AllGenes_02.16.24_Human_counts.tsv"
   sampleFile <- "BulkRNASeq2024_samples.tsv"
   outDir <- "./"
   savedir <- paste0(outDir,runID)
@@ -158,42 +158,97 @@ print("Running PAM50 Subtyping...")
 ## run PAM50 classification
 pam50_predictions_all <- molecular.subtyping(sbt.model = 'pam50', data = t(normalized_counts_filt), annot = gene.list.filt, do.mapping = FALSE)
 
-crisp <- as.data.frame(pam50_predictions_all$subtype.crisp)
+#crisp <- as.data.frame(pam50_predictions_all$subtype.crisp)
 #pam50_predictions_all$subtype.proba
 
 write.table(file=paste0(runID,"_PAM50-crisp.tsv"), x=pam50_predictions_all$subtype.crisp, quote=FALSE, sep="\t")
 write.table(file=paste0(runID,"_PAM50-prob.tsv"), x=pam50_predictions_all$subtype.proba, quote=FALSE, sep="\t")
 
-all(row.names(samples)==row.names(crisp))
+all(row.names(samples)==names(pam50_predictions_all$subtype))
 
 ##update annotations:
-samples$PAM50[crisp$Basal==1] <- "Basal"
-samples$PAM50[crisp$Her2==1] <- "Her2"
-samples$PAM50[crisp$LumA==1] <- "LumA"
-samples$PAM50[crisp$LumB==1] <- "LumB"
-samples$PAM50[crisp$Normal==1] <- "Normal"
+samples$PAM50 <- pam50_predictions_all$subtype
+#samples$PAM50[crisp$Basal==1] <- "Basal"
+#samples$PAM50[crisp$Her2==1] <- "Her2"
+#samples$PAM50[crisp$LumA==1] <- "LumA"
+#samples$PAM50[crisp$LumB==1] <- "LumB"
+#samples$PAM50[crisp$Normal==1] <- "Normal"
 
+
+################ Claudin Low (same method as used for single cell)
 print("Running ClaudinLow Subtyping...")
-## run ClaudinLow classification
-clow_predictions_all <- molecular.subtyping(sbt.model = 'claudinLow', data = t(normalized_counts_filt), annot = gene.list.filt, do.mapping = TRUE)
+## run ClaudinLow classification (https://rdrr.io/bioc/genefu/man/claudinLow.html)
+## Using code from https://github.com/clfougner/ClaudinLow/blob/master/Code/METABRIC_patientData.r#L111
 
-crisp_clow <- as.data.frame(clow_predictions_all$subtype.crisp)
-#pam50_predictions_all$subtype.proba
+## import claudin data
+data(claudinLowData)
 
-write.table(file=paste0(runID,"_ClaudinLow-crisp.tsv"), x=clow_predictions_all$subtype.crisp, quote=FALSE, sep="\t")
-write.table(file=paste0(runID,"_ClaudinLow-prob.tsv"), x=clow_predictions_all$subtype.proba, quote=FALSE, sep="\t")
+print("Identifying claudin-low tumors using the nine-cell line predictor (Prat et al. 2010)")
 
-all(row.names(samples)==row.names(crisp_clow))
+# Find entrez IDs for claudin low genes and identify those available in input scData data
+entrezID_CLgenes <- claudinLowData$fnames
+overlappingCL_entrezID <- gene.list.filt[which(gene.list.filt$EntrezGene.ID %in% entrezID_CLgenes),]
 
-##update annotations:
-samples$ClaudinLow[crisp_clow$Claudin==1] <- "ClaudinLow"
-samples$ClaudinLow[crisp_clow$Others==1] <- "Others"
+# Select relevant rows - I don't think I need this because I filter on line 170
+#normalized_counts_filtCL <- normalized_counts_filt[row.names(normalized_counts_filt) %in% overlappingCL_entrezID$Gene.Symbol, ]
 
+# Train centroids based on available genes
+trainingData <- claudinLowData
+trainingData$xd <- medianCtr(trainingData$xd)
+trainingData$xd <- trainingData$xd[rownames(trainingData$xd) %in% overlappingCL_entrezID$EntrezGene.ID, ]
+
+# Scale normalized data and training data
+normalized_counts_filt_scaled <- t(scale(t(normalized_counts_filt), scale = TRUE, center = TRUE))
+normalized_counts_filt_scaled <- normalized_counts_filt_scaled[overlappingCL_entrezID$Gene.Symbol, ]
+row.names(normalized_counts_filt_scaled) <- overlappingCL_entrezID$EntrezGene.ID
+
+trainingData$xd <- t(scale(t(trainingData$xd), scale = TRUE, center = TRUE))
+
+# Determine claudin-low status
+cl_class <- claudinLow(x = trainingData$xd, classes = as.matrix(trainingData$classes$Group, ncol = 1), y = normalized_counts_filt_scaled, distm = "euclidean")
+predsCL <- cl_class$predictions[,"Call", drop=FALSE]
+names(predsCL) <- c("claudinLow")
+
+## Merge predictions with metadata
+all(row.names(samples)==row.names(predsCL))
+samples$ClaudinLow <- predsCL
 samples$Sample.ID <- row.names(samples)
-## write out updated sample file
+
+
+## save distances
+write.table(cl_class$distances, paste0(outDir,runID,"_pseudoClaudinLow_Distances.tsv"), sep="\t", quote = FALSE, row.names = TRUE)
+
+
 write.table(file=paste0(runID,"_SubtypedSamples.tsv"), x=samples, quote=FALSE, sep="\t")
 
 print("COMPLETED!")
+
+
+
+
+
+
+################## Old ClaudinLow Method
+#print("Running ClaudinLow Subtyping...")
+## run ClaudinLow classification
+#clow_predictions_all <- molecular.subtyping(sbt.model = 'claudinLow', data = t(normalized_counts_filt), annot = gene.list.filt, do.mapping = TRUE)
+
+#crisp_clow <- as.data.frame(clow_predictions_all$subtype.crisp)
+#pam50_predictions_all$subtype.proba
+
+#write.table(file=paste0(runID,"_ClaudinLow-crisp.tsv"), x=clow_predictions_all$subtype.crisp, quote=FALSE, sep="\t")
+#write.table(file=paste0(runID,"_ClaudinLow-prob.tsv"), x=clow_predictions_all$subtype.proba, quote=FALSE, sep="\t")
+
+#all(row.names(samples)==row.names(crisp_clow))
+
+##update annotations:
+#samples$ClaudinLow[crisp_clow$Claudin==1] <- "ClaudinLow"
+#samples$ClaudinLow[crisp_clow$Others==1] <- "Others"
+
+#samples$Sample.ID <- row.names(samples)
+## write out updated sample file
+
+
 
 
 
