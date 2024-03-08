@@ -198,11 +198,14 @@ trainingData$xd <- medianCtr(trainingData$xd)
 trainingData$xd <- trainingData$xd[rownames(trainingData$xd) %in% overlappingCL_entrezID$EntrezGene.ID, ]
 
 # Scale normalized data and training data
-normalized_counts_filt_scaled <- t(scale(t(normalized_counts_filt), scale = TRUE, center = TRUE))
+#normalized_counts_filt_scaled <- t(scale(t(normalized_counts_filt), scale = TRUE, center = TRUE))
+normalized_counts_filt_scaled <- medianCtr(t(normalized_counts_filt))
+
+
 normalized_counts_filt_scaled <- normalized_counts_filt_scaled[overlappingCL_entrezID$Gene.Symbol, ]
 row.names(normalized_counts_filt_scaled) <- overlappingCL_entrezID$EntrezGene.ID
 
-trainingData$xd <- t(scale(t(trainingData$xd), scale = TRUE, center = TRUE))
+#trainingData$xd <- t(scale(t(trainingData$xd), scale = TRUE, center = TRUE))
 
 # Determine claudin-low status
 cl_class <- claudinLow(x = trainingData$xd, classes = as.matrix(trainingData$classes$Group, ncol = 1), y = normalized_counts_filt_scaled, distm = "euclidean")
@@ -211,7 +214,7 @@ names(predsCL) <- c("claudinLow")
 
 ## Merge predictions with metadata
 all(row.names(samples)==row.names(predsCL))
-samples$ClaudinLow <- predsCL
+samples$ClaudinLow <- predsCL$claudinLow
 samples$Sample.ID <- row.names(samples)
 
 
@@ -219,7 +222,7 @@ samples$Sample.ID <- row.names(samples)
 write.table(cl_class$distances, paste0(outDir,runID,"_pseudoClaudinLow_Distances.tsv"), sep="\t", quote = FALSE, row.names = TRUE)
 
 
-write.table(file=paste0(runID,"_SubtypedSamples.tsv"), x=samples, quote=FALSE, sep="\t")
+write.table(file=paste0(runID,"_SubtypedSamples.tsv"), x=samples, quote=FALSE, sep="\t", row.names = FALSE)
 
 print("COMPLETED!")
 
