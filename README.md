@@ -111,6 +111,13 @@ The InferCNV scores were overlaid on the Loupe plot to identify if the normal sa
 
 ## Step 09: Cancer-Only Merge.
 
+Some of this was done manually by using the master merge to select the normal clusters in the UMAP plot to remove those cells.  Any non-normal cell that clustered with the normals was ALSO REMOVED from the Cancer-Only Dataset.  The chosen cancer-only barcodes were downloaded into a single file and input into the script "cells2keep_convertMerged2Unmerged_050823.R", which divided them up into new "cells2keep" csv files and saved them in the appropriate directories.  ---I NEED TO ANNOTATE THIS PROCeSS AND DESCRIBE THE SCRIPT---
+
+Step | Details
+---  | ---
+Tool Names and Versions | R 4.1.3
+Pipeline script | 06_SeuratMerge.R
+Input File Format | Comma delimited, has header row (SampleName,DataType,SamplePath,Source,Condition,Sex,TumorType,Cells2Keep), has the following 8 columns (but more can be added and will be used as cell annotations): Sample ID, data type (10X or seurat), absolute path to sample’s “filtered_feature_bc_matrix” directory, sample source (e.g. PDX, MGT, etc), condition or treatment, sample sex (M or F), tumor type (e.g. HCI011, UCD52, etc), absolute path to CSV file listing barcodes of cells to keep in merge.
 
 
 
