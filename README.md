@@ -56,7 +56,8 @@ Output File formats and type | See Step 02
 
 Step | Details
 ---  | ---
-Tool Name and Version | R 4.1.3 and hdf5-1.12.2
+Tool Name and Version | R 4.1.3
+Tool Name and Version | hdf5-1.12.2
 Pipeline Script | 05_DeadCellAnalysis.R
 Input File Format | TAB delimited, has the following 2 columns: sample ID, absolute path to human-aligned “outs” directory.
 Example Usage (use --help option for all parameters) | Rscript 05_DeadCellAnalysis.R -r UniqRunID -c sample_tabdelim_file.list -f /path/to/mitogenes/MitoCodingGenes13_human.txt -s human -o /path/to/results/directory
@@ -67,7 +68,8 @@ Output File formats and type | Tab delim .txt report, .png images of violin plot
 
 Step | Details
 ---  | ---
-Tool Name and Version | R 4.1.3 and hdf5-1.12.2
+Tool Name and Version | R 4.1.3
+Tool Name and Version | hdf5-1.12.2
 Pipeline script | 06_SeuratMerge.R
 Input File Format | Comma delimited, has header row (SampleName,DataType,SamplePath,Source,Condition,Sex,TumorType,Cells2Keep), has the following 8 columns (but more can be added and will be used as cell annotations): Sample ID, data type (10X or seurat), absolute path to sample’s “filtered_feature_bc_matrix” directory, sample source (e.g. PDX, MGT, etc), condition or treatment, sample sex (M or F), tumor type (e.g. HCI011, UCD52, etc), absolute path to CSV file listing barcodes of cells to keep in merge.
 Example Usage (use --help option for all parameters) | Rscript 06_SeuratMerge.R -r UniqRunID -c /path/to/input.csv -i LogNormalize -t simple --parallel -n 32 --filter
@@ -86,6 +88,29 @@ Input File Format | the .h5 file generated from the merging script in step 06.
 Example Usage | cellranger reanalyze --id=UniquRunID --description=RunDescription --matrix=/path/to/merged_file.h5 --params=/path/to/reanalyze_params.txt
 Output Files used in downstream steps? | Yes, Loupe file used for figure generation and analysis.
 Output File formats and type | CellRanger “outs” directory with a Loupe File.
+
+Once the Loupe file is generated, it is opened and the annotation CSV files from step 06 are manually imported. This includes the UMAP and tSNE layouts and the SNN clusters. Because this was a work-around and not a supported conversion method by 10X the layout and clustering of the default generated data in the Loupe file cannot be trusted as can be seen by the SampleID that ever only has 99 barcodes in it. The LoupeR package fixes most of this; however, at this point the annotations are being imported incorrectly.
+
+## Step 08: Identifying Malignant Cells using InferCNV
+
+This step was only done once on a 30% subsampled dataset as using the entire dataset exceeded out compute resources.  
+This script only processes all samples in the input file in batches of "k" at a time. The same 5 manually selected samples are also run with each batch and are used to calculate the Zscores. 
+
+Step | Details
+---  | ---
+Tool Names and Versions | R 4.1.3
+Tool Name and Version | JAGS 4.3.1
+Tool Name and Version | InferCNV 1.10.1
+Pipeline Script | 08_inferCNV_id_malignent_cells.R
+Input File Format | The .RData file from the merging step.
+Example Usage | Rscript 08_inferCNV_id_malignent_cells.R -r UniqRunID -o /path/to/existing/output/directory/ -i /path/to/merged_file.RData -k 5 -f /path/to/sample/phenotype_MetaData.csv -g /path/to/reference/genome/genes.gtf
+Output Files used in downstream steps? | Yes, the CSV files were loaded into the Loupe File and used to identify clusters of cells that are normal-like.
+Output File formats and type | CSV files with scores, RDA file with inferCNV object
+
+The InferCNV scores were overlaid on the Loupe plot to identify if the normal samples correlated with low z-scores.  For our data they did, so instead of filtering on individual cells by Z-score, we removed all cells that clustered with the normal samples in the UMAP plot.  New "Cells2Keep" files were generated to identify 
+
+## Step 09: Cancer-Only Merge.
+
 
 
 
