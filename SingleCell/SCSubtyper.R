@@ -68,7 +68,7 @@ temp_allgenes <- unique(temp_allgenes[!temp_allgenes == ""])
 
 #Read in the single cell RDS object as 'Mydata'
 print("Loading RData file...")
-load(inFile) ## must have a suriate object named seurat.merged saved
+load(inFile) ## must have a Seurat object named seurat.merged saved
 
 #print("RData file loaded, scaling data...")
 #Mydata <- ScaleData(seurat.merged, features=temp_allgenes)
