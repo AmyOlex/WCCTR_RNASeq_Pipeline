@@ -100,6 +100,12 @@ outdat <- matrix(0,
                  dimnames=list(colnames(sigdat),
                                colnames(tocalc)))
 
+outdat_sum <- matrix(0,
+                 nrow=ncol(sigdat),
+                 ncol=ncol(tocalc),
+                 dimnames=list(colnames(sigdat),
+                               colnames(tocalc)))
+
 ## I tried removing any signature gene that had a sum of zero across all cells, but this is the scaled data, so it is never all zero.
 ## Maybe if I round the absolute values? Or say anything below0.5, but that is really arbitrary.
 for(i in 1:ncol(sigdat)){
@@ -112,24 +118,28 @@ for(i in 1:ncol(sigdat)){
   siggene_data <- tocalc[genes,]
   siggene_data <- siggene_data[rowSums(abs(siggene_data))>0,]
   
+  ## Using average
   temp<-apply(siggene_data,2,function(x){mean(as.numeric(x),na.rm=FALSE)})
-  
   outdat[i,]<-as.numeric(temp)
+  
+  ## Using SUM
+  temp_sum<-apply(siggene_data,2,function(x){sum(as.numeric(x),na.rm=FALSE)})
+  outdat_sum[i,]<-as.numeric(temp_sum)
   
 }
 
 outdat_t <- as.data.frame(t(outdat))
-## Score scaling
-## NO, I don't think we should scale.  I need to see the heatmap.
-##outdat_t <-as.data.frame(t(scale(outdat, center = TRUE, scale = FALSE)))
+outdat_sum_t <- as.data.frame(t(outdat_sum))
 
-new_names <- c(names(outdat_t), paste0(names(outdat_t), "_SigScore"))
+new_names <- c(paste0(names(outdat_t), "_SigScoreAVG"), paste0(names(outdat_t), "_SigCatAVG"))
 numcol <- ncol(outdat_t)
 
+new_names_sum <- c(paste0(names(outdat_sum_t), "_SigScoreSUM"), paste0(names(outdat_sum_t), "_SigCatSUM"))
+#numcol <- ncol(outdat_sum_t)
 
 
 
-## CELL SIGNATURE CLASSIFICATION
+## CELL SIGNATURE CLASSIFICATION for AVG
 for(i in 1:ncol(outdat_t)){
   this_quant <- quantile(outdat_t[,i])
   outdat_t[,i+numcol] <- 'LessThanQ3'
@@ -139,11 +149,28 @@ for(i in 1:ncol(outdat_t)){
 names(outdat_t) <- new_names
 outdat_t$barcode <- row.names(outdat_t)
 
-## write out annotation files for Loupe
-for(i in (1+dim(outdat)[1]):(ncol(outdat_t)-1)){
-  write.table(file=paste0(runID, "_SigCategories_scaled_",new_names[i],".csv"), outdat_t[,c("barcode",new_names[i])], row.names = FALSE, quote = FALSE, sep=",")
+
+## CELL SIGNATURE CLASSIFICATION for SUM
+for(i in 1:ncol(outdat_sum_t)){
+  this_quant <- quantile(outdat_sum_t[,i])
+  outdat_sum_t[,i+numcol] <- 'LessThanQ3'
+  outdat_sum_t[outdat_sum_t[,i]>this_quant[4],i+numcol] <- 'HigherThanQ3'
 }
 
+names(outdat_sum_t) <- new_names_sum
+outdat_sum_t$barcode <- row.names(outdat_sum_t)
+
+## write out annotation files for Loupe and add each to the Seurat Object
+for(i in 1:(ncol(outdat_t)-1)){
+  write.table(file=paste0(runID, "_SigAnnotation_scaled_",new_names[i],".csv"), outdat_t[,c("barcode",new_names[i])], row.names = FALSE, quote = FALSE, sep=",")
+  write.table(file=paste0(runID, "_SigAnnotation_scaled_",new_names_sum[i],".csv"), outdat_sum_t[,c("barcode",new_names_sum[i])], row.names = FALSE, quote = FALSE, sep=",")
+  
+  seurat.obj[[new_names[i]]] <- outdat_t[,new_names[i]]
+  seurat.obj[[new_names_sum[i]]] <- outdat_sum_t[,new_names_sum[i]]
+}
+
+## Save update Seurat Object
+saveRDS(seurat.obj, file = paste0(runID, "_SeuratObj_wSignatureAnnots.rds"))
 
 ## GENERATE HEATMAPS
 for(i in 1:ncol(sigdat)){
@@ -200,15 +227,15 @@ for(i in 1:ncol(sigdat)){
 ######################################## NO, Don't Use This Part ############################
 #### Using the SUM of RAW data
 
-# ## Recalculate the nCount_RNA
-# Mydata$nCount_RNA <- colSums(Mydata@assays$RNA$counts)
-# 
-# ## Remove all genes with a zero count across all cells
-# Mydata_filt <- Mydata[rowSums(Mydata@assays$RNA@counts) > 0, ]
-# 
-# ## Calculate sums
-# tocalc_sum <- as.data.frame(Mydata_filt@assays$RNA@counts)
-# 
+## Recalculate the nCount_RNA
+#Mydata$nCount_RNA <- colSums(Mydata@assays$RNA$counts)
+
+## Remove all genes with a zero count across all cells
+#Mydata_filt <- Mydata[rowSums(Mydata@assays$RNA@counts) > 0, ]
+
+## Calculate sums
+#tocalc_sum <- as.data.frame(Mydata_filt@assays$RNA@counts)
+
 # print("Calculating SUM signature scores...")
 # outdat_sum <- matrix(0,
 #                  nrow=ncol(sigdat),
@@ -219,11 +246,11 @@ for(i in 1:ncol(sigdat)){
 # outdat_sum_norm <- outdat_sum
 # 
 # for(i in 1:ncol(sigdat)){
-#   
+# 
 #   siggenes <- as.character(sigdat[,i])
 #   siggenes <- unique(siggenes[siggenes != ""])
 #   genes<-which(rownames(tocalc_sum) %in% siggenes)
-#   
+# 
 #   temp<-apply(tocalc_sum[genes,],2,function(x){sum(as.numeric(x),na.rm=TRUE)})
 # 
 #   ## I am thinking I should probably normalize by the nCount_RNA, which is the UMI basically for read depth of each cells.
@@ -260,50 +287,50 @@ for(i in 1:ncol(sigdat)){
 # 
 # 
 # ## Generate heatmaps
-#   ###  This heat map is supposed to show the raw count data from the single cell, but I keep getting Nan's 
+#   ###  This heat map is supposed to show the raw count data from the single cell, but I keep getting Nan's
 #   ###  Maybe need to re-evaluate the Seurat Scale method and see if I can get it to center the data.
 # for(i in 1:ncol(sigdat)){
-#   
+# 
 #   siggenes <- as.character(sigdat[,i])
 #   siggenes<-unique(siggenes[siggenes != ""])
 #   genes<-which(rownames(tocalc_sum) %in% siggenes)
-#   
+# 
 #   tmp <- tocalc_sum[genes,]
 #   tmp_filt <- tmp[rowSums(tmp)!=0,]
-#   
+# 
 #   this_sig_exp <- as.data.frame(t(tmp_filt))
 #   this_sig_exp$classes <- outdat_sum_norm_t[,new_names[i+dim(outdat_sum)[1]]]
 #   this_sig_exp$Row.names <- row.names(this_sig_exp)
-#   
+# 
 #   ## Subset to 20% in each group
 #   pop <- this_sig_exp %>% group_by(classes)
 #   subset <- slice_sample(pop, prop=0.2)
 #   row.names(subset) <- subset$Row.names
 #   subset <- subset[rowSums(subset[,1:(ncol(subset)-2)])>0,]
-#   
+# 
 #   subset_scaled <- na.omit(as.matrix(t(scale(subset[,1:(ncol(subset)-2)], center = TRUE, scale = TRUE))))
 #   val <- max(abs(subset_scaled))
 #   breaks = c((-1*val),0,val)
-#   
+# 
 #   # Create a color mapping function centered on zero
 #   color_mapping = circlize::colorRamp2(breaks = breaks, colors = c("blue", "white", "red"))
-#   
-#   
+# 
+# 
 #   #subset_scaled[is.na(subset_scaled)] <- 0
 #   #colAnnot <- HeatmapAnnotation(Class = outdat_t[,new_names[i+dim(outdat)[1]]], col = list(Class = c("HigherThanQ3" = "red", "LessThanQ3" = "blue")))
 #   colAnnot <- HeatmapAnnotation(Class = subset$classes, col = list(Class = c("HigherThanQ3" = "red", "LessThanQ3" = "blue")))
-#   
-#   #print(Heatmap(scale(t(subset[,1:(ncol(subset)-2)]), center = TRUE, scale = FALSE), top_annotation = colAnnot, column_split = subset$classes))  
-#   
-#   png(filename=paste0(runID,"_",names(sigdat)[i],"_NormSum_heatmap_centered.png")) 
-#     print(Heatmap(subset_scaled, col = color_mapping, top_annotation = colAnnot, column_split = subset$classes)) #, heatmap_legend_param = list(Class = "Class", )))  
+# 
+#   #print(Heatmap(scale(t(subset[,1:(ncol(subset)-2)]), center = TRUE, scale = FALSE), top_annotation = colAnnot, column_split = subset$classes))
+# 
+#   png(filename=paste0(runID,"_",names(sigdat)[i],"_NormSum_heatmap_centered.png"))
+#     print(Heatmap(subset_scaled, col = color_mapping, top_annotation = colAnnot, column_split = subset$classes)) #, heatmap_legend_param = list(Class = "Class", )))
 #   dev.off()
-#   
+# 
 #   png(filename=paste0(runID,"_",names(sigdat)[i],"_NormSum_heatmap.png"))
-#     print(Heatmap(t(subset[,1:(ncol(subset)-2)]),  col=c("white", "red"), top_annotation = colAnnot, column_split = subset$classes)) #, heatmap_legend_param = list(Class = "Class", )))  
+#     print(Heatmap(t(subset[,1:(ncol(subset)-2)]),  col=c("white", "red"), top_annotation = colAnnot, column_split = subset$classes)) #, heatmap_legend_param = list(Class = "Class", )))
 #   dev.off()
 # }
-# 
+
 # 
 # 
 # 
