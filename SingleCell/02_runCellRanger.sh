@@ -81,19 +81,21 @@ cat $INPUT | while read sample sampleid ref cellc fastqdir
 do 
 	if [[ "$ref" == "mm10" ]]
 	then
-		reference="/data/refGenomes/CellRanger/refdata-cellranger-mm10-3.0.0"
+		##reference="/data/refGenomes/CellRanger/refdata-cellranger-mm10-3.0.0"
+		reference="/vcu_gpfs2/home/harrell_lab/src/cellranger-6.0.1/refdata/refdata-gex-mm10-2020-A"
 	elif [[ "$ref" == "hg19mm10" ]]
 	then
 		reference="/data/refGenomes/CellRanger/refdata-cellranger-hg19-and-mm10-3.0.0"
 	elif [[ "$ref" == "grch38" ]]
 	then
-		reference="/data/refGenomes/CellRanger/refdata-cellranger-GRCh38-3.0.0"	
+		##reference="/data/refGenomes/CellRanger/refdata-cellranger-GRCh38-3.0.0"	
+		reference="/vcu_gpfs2/home/harrell_lab/src/cellranger-6.0.1/refdata/refdata-gex-GRCh38-2020-A"
 	elif [[ "$ref" == "hg19" ]]
         then
                 reference="/data/refGenomes/CellRanger/refdata-cellranger-hg19-3.0.0"
-	elif [[ "$ref" == "mm10firefly" ]]
+	elif [[ "$ref" == "grch38mm10" ]]
 	then
-		reference="/vcu_gpfs2/home/mccbnfolab/ref_genomes/mouse/mm10firefly"
+		reference="/vcu_gpfs2/home/harrell_lab/src/cellranger-6.0.1/refdata/refdata-gex-GRCh38-and-mm10-2020-A"
 	else
 		echo "ERROR: Reference Genome Not Found"; usage; exit 1
 	fi
@@ -102,14 +104,14 @@ do
 	if [[ $FORCE == 1 ]]
 	then
                 echo Processing $sample with reference $reference and raw fastq files located in $fastqdir;
-                echo cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --force-cells=$cellc --localcores=$CORES
+                echo /vcu_gpfs2/home/harrell_lab/src/cellranger-6.0.1/bin/cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --force-cells=$cellc --localcores=$CORES
 	
-                cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --force-cells=$cellc --localcores=$CORES
+                /vcu_gpfs2/home/harrell_lab/src/cellranger-6.0.1/bin/cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --force-cells=$cellc --localcores=$CORES --jobmode=local --localmem=99
 	else
 		echo Processing $sample with reference $reference;
-		echo cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --expect-cells=$cellc --localcores=$CORES
+		echo /vcu_gpfs2/home/harrell_lab/src/cellranger-6.0.1/bin/cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --expect-cells=$cellc --localcores=$CORES --jobmode=local --localmem=99
 	
-		cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --expect-cells=$cellc --localcores=$CORES
+		/vcu_gpfs2/home/harrell_lab/src/cellranger-6.0.1/bin/cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --expect-cells=$cellc --localcores=$CORES --jobmode=local --localmem=99
 	fi
 	
 	
