@@ -96,6 +96,12 @@ do
 	elif [[ "$ref" == "grch38mm10" ]]
 	then
 		reference="/vcu_gpfs2/home/harrell_lab/src/cellranger-6.0.1/refdata/refdata-gex-GRCh38-and-mm10-2020-A"
+	elif [[ "$ref" == "h38m39-2024A" ]]
+	then
+		reference="/vcu_gpfs2/home/mccbnfolab/ref_genomes/CellRanger/refdata-gex-GRCh38_and_GRCm39-2024-A"
+	elif [[ "$ref" == "h38m39-2024A_plusFirefly_pluspGL3" ]]
+	then
+		reference="/vcu_gpfs2/home/mccbnfolab/ref_genomes/CellRanger/refdata-gex-GRCh38_and_GRCm39-2024-A_plusFirefly_pluspGL3"
 	else
 		echo "ERROR: Reference Genome Not Found"; usage; exit 1
 	fi
@@ -104,14 +110,14 @@ do
 	if [[ $FORCE == 1 ]]
 	then
                 echo Processing $sample with reference $reference and raw fastq files located in $fastqdir;
-                echo /vcu_gpfs2/home/harrell_lab/src/cellranger-6.0.1/bin/cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --force-cells=$cellc --localcores=$CORES
+                echo cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --force-cells=$cellc --localcores=$CORES --jobmode=local --localmem=99 --create-bam true
 	
-                /vcu_gpfs2/home/harrell_lab/src/cellranger-6.0.1/bin/cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --force-cells=$cellc --localcores=$CORES --jobmode=local --localmem=99
+                cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --force-cells=$cellc --localcores=$CORES --jobmode=local --localmem=99 --create-bam true
 	else
 		echo Processing $sample with reference $reference;
-		echo /vcu_gpfs2/home/harrell_lab/src/cellranger-6.0.1/bin/cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --expect-cells=$cellc --localcores=$CORES --jobmode=local --localmem=99
+		echo cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --expect-cells=$cellc --localcores=$CORES --jobmode=local --localmem=99 --create-bam true
 	
-		/vcu_gpfs2/home/harrell_lab/src/cellranger-6.0.1/bin/cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --expect-cells=$cellc --localcores=$CORES --jobmode=local --localmem=99
+		cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --expect-cells=$cellc --localcores=$CORES --jobmode=local --localmem=99 --create-bam true
 	fi
 	
 	
