@@ -38,6 +38,7 @@
 ## UPDATED 4/6/2023 to allow user to specify if they want the scaled RNA counts or the raw RNA counts to be output.  Previously is was only exporting the scaled counts.
 ## UPDATED 8/2/2023 to allow user option to do ambient RNA adjustments of read counts BEFORE any other processing is done on the data.
 ## UPDATED 1/23/2024 to utilize the new LoupeR package to directly generate a Loupe file.
+## UPDATED 5/29/2024 to fix the annotation issue with the LoupeR package conversion.
 
 
 library(Seurat)
@@ -97,11 +98,11 @@ add_soup_groups <- function (sobj){
 
 
 
-localtest = FALSE
+localtest = TRUE
 ###########################################
 #### Local Testing Block
 if(localtest){
-  setwd("/Users/alolex/Desktop/Harrell_LocalTesting")
+  setwd("/Users/alolex/Desktop/CCTR_LOCAL_Analysis_noBackups/Harrell_LocalTesting")
   runID <- "TEST"
   inFile <- "./configtest2.csv"
   outDir <- "./"
@@ -110,7 +111,7 @@ if(localtest){
   numCores <- 2
   numAnchors <- 2000
   normalization <- "LogNormalize"
-  mergeType <- "integration"
+  mergeType <- "simple"
   parallel <- FALSE
   saveH5 <- TRUE
   species <- "mouse"
@@ -120,6 +121,7 @@ if(localtest){
   filtercells <- TRUE
   exportCounts <- TRUE
   keep <- ""
+  ambientRNAadjust <- FALSE
   options(future.globals.maxSize = 3000 * 1024^2)
 }
 ###########################################
@@ -600,17 +602,13 @@ for(n in 1:(dim(toProcess)[2]-1)){
     anno[anno[,2] == toProcess[i,1], 2] <- toProcess[i,n]
   }
   
-  seurat.merged@meta.data[n] <- anno[,2,drop=FALSE]
+  seurat.merged@meta.data[names(toProcess)[n]] <- anno[,2,drop=FALSE]
   
   
   ## Save Sample Annotations
   write.csv(anno, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_", names(toProcess)[n], ".csv"), quote = FALSE, row.names = FALSE)
-  
-  
+
 }
-
-
-
 
 
 print(Sys.time() - mid_time)
