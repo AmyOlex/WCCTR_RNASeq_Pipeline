@@ -97,6 +97,14 @@ if (is.null(opt$targetlib)){
 #targetlib <- "ER_101023_Visvader-plus-PDX_MASTER_CancerEROnly_SimpleMerge_GRCh38_Seurat_simpleMerge_LogNormalize_LibraryID.csv"
 #annot <- "101023_rerun_Visvader-plus-PDX_MASTER_CancerOnly_SimpleMerge_PreLogNorm_SCSubtypes_Annotation.csv"
 
+##
+setwd("/Users/alolex/Desktop/CCTR_LOCAL_Analysis_noBackups/Harrell_LocalTesting/MASTER_Merge_032624")
+sourcelib <- "/Users/alolex/Desktop/CCTR_LOCAL_Analysis_noBackups/Harrell_LocalTesting/MASTER_Merge_032624/032624_Visvader-plus-PDX_MASTER_ALL_SimpleMerge_GRCh38_Seurat_simpleMerge_LogNormalize_LibraryID_concatenated.csv"
+outDir <- "./"
+outFile <- "111523_Visvader-plus-PDX_MASTER_ALL_SimpleMerge_GRCh38_Seurat_simpleMerge_LogNormalize_inferCNV_ReferenceCells_Annotation_PortedFrom-032624_inferCNV_analysis.csv"
+targetlib <- "/Users/alolex/Desktop/CCTR_LOCAL_Analysis_noBackups/Harrell_LocalTesting/MASTER_Merge_032624/111523_masterMerge_LibraryID.csv"
+annot <- "/Users/alolex/Desktop/CCTR_LOCAL_Analysis_noBackups/Harrell_LocalTesting/MASTER_Merge_032624/032624_Visvader-plus-PDX_MASTER_ALL_SimpleMerge_GRCh38_Seurat_simpleMerge_LogNormalize_Annotated_inferCNV_Reference_concatenated.csv"
+
 sourcelib <- opt$sourcelib
 outDir <- paste0(opt$outdir,"/")
 outFile <- paste0(opt$outdir,"/", opt$outfile)
