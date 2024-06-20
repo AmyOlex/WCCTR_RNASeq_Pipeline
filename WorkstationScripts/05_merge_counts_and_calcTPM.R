@@ -165,7 +165,7 @@ if (is.null(opt$configfile)){
 runID <- opt$runid
 inFile <- opt$configfile
 outDir <- opt$outdir
-savedir <- paste0(outDir,runID)
+savedir <- outDir
 species <- opt$species
 IdCol <- opt$idcol
 
