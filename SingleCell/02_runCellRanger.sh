@@ -89,13 +89,17 @@ do
 	elif [[ "$ref" == "grch38" ]]
 	then
 		##reference="/data/refGenomes/CellRanger/refdata-cellranger-GRCh38-3.0.0"	
-		reference="/vcu_gpfs2/home/harrell_lab/src/cellranger-6.0.1/refdata/refdata-gex-GRCh38-2020-A"
+		##reference="/vcu_gpfs2/home/harrell_lab/src/cellranger-6.0.1/refdata/refdata-gex-GRCh38-2020-A"
+		reference="/vcu_gpfs2/home/mccbnfolab/ref_genomes/CellRanger/refdata-gex-GRCh38-2024-A"
 	elif [[ "$ref" == "hg19" ]]
         then
                 reference="/data/refGenomes/CellRanger/refdata-cellranger-hg19-3.0.0"
 	elif [[ "$ref" == "grch38mm10" ]]
 	then
 		reference="/vcu_gpfs2/home/harrell_lab/src/cellranger-6.0.1/refdata/refdata-gex-GRCh38-and-mm10-2020-A"
+	elif [[ "$ref" == "grcm39" ]]
+	then
+		reference="/vcu_gpfs2/home/mccbnfolab/ref_genomes/CellRanger/refdata-gex-GRCm39-2024-A"
 	elif [[ "$ref" == "h38m39-2024A" ]]
 	then
 		reference="/vcu_gpfs2/home/mccbnfolab/ref_genomes/CellRanger/refdata-gex-GRCh38_and_GRCm39-2024-A"
@@ -110,14 +114,14 @@ do
 	if [[ $FORCE == 1 ]]
 	then
                 echo Processing $sample with reference $reference and raw fastq files located in $fastqdir;
-                echo cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --force-cells=$cellc --localcores=$CORES --jobmode=local --localmem=99 --create-bam true
+                echo cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --force-cells=$cellc --localcores=$CORES --jobmode=local --localmem=99 --create-bam=true
 	
-                cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --force-cells=$cellc --localcores=$CORES --jobmode=local --localmem=99 --create-bam true
+                cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --force-cells=$cellc --localcores=$CORES --jobmode=local --localmem=99 --create-bam=true
 	else
 		echo Processing $sample with reference $reference;
-		echo cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --expect-cells=$cellc --localcores=$CORES --jobmode=local --localmem=99 --create-bam true
+		echo cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --expect-cells=$cellc --localcores=$CORES --jobmode=local --localmem=99 --create-bam=true
 	
-		cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --expect-cells=$cellc --localcores=$CORES --jobmode=local --localmem=99 --create-bam true
+		cellranger count --id=$sampleid --transcriptome=$reference --fastqs=$fastqdir --sample=$sample --expect-cells=$cellc --localcores=$CORES --jobmode=local --localmem=99 --create-bam=true
 	fi
 	
 	
