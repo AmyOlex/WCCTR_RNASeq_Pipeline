@@ -98,7 +98,7 @@ add_soup_groups <- function (sobj){
 
 
 
-localtest = TRUE
+localtest = FALSE
 ###########################################
 #### Local Testing Block
 if(localtest){
