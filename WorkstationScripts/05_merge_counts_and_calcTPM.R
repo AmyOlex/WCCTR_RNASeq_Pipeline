@@ -10,12 +10,15 @@
 ##
 ## UPDATES:
 ## 2/16/24 - Updating script to account for technical replicates.  If these are found, then they are summed into a single column before being added to the count matrix.
-
+## 6/21/24 - Adding some debugging print statements
 
 library(readr)
 library(AnnotationHub)
 library(NMF)
 library(optparse)
+library(dbplyr)
+
+sessionInfo()
 
 calc.tpm.fromFeatureCounts <- function(metadata, data){
   
@@ -165,7 +168,7 @@ if (is.null(opt$configfile)){
 runID <- opt$runid
 inFile <- opt$configfile
 outDir <- opt$outdir
-savedir <- outDir
+savedir <- paste0(outDir,"/",runID)
 species <- opt$species
 IdCol <- opt$idcol
 
