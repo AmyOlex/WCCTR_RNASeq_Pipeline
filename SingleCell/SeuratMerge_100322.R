@@ -521,9 +521,13 @@ if(mergeType == "integration"){
 }
 #### End Integration
 
+#### generate Loupe file without annotations
+print("Saving unannotated Loupe file...")
+create_loupe_from_seurat(seurat.merged, output_dir = outDir, output_name = paste0(runID,"_Seurat_",mergeType,"Merge_",normalization,".cloupe"))
+
 
 ####
-## Cell Cycle Scoreing
+## Cell Cycle Scoring
 #####
 
 seurat.merged <- ScaleData(seurat.merged, features = rownames(seurat.merged))
