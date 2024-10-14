@@ -81,7 +81,7 @@ option_list = list(
   
   make_option(c("--customCutoffs"), type="logical", 
               help="Include if custom cutoffs for mito content, nCount, and nFeature are included in the config file. nCount and nFeature should be ranges formatted as lower-upper (e.g. 500-125000 for nCount). Must be specified in the last 3 columns in that order: mito%, nCount, nFeature. Default is FALSE", 
-              default = FALSE, action = "store_true", metavar="logical"),
+              default = FALSE, action = "store_true", metavar="logical")
   
 #  make_option(c("--usegem"), type="logical", 
 #              help="flags script to utilize the gem files associated with the inputs to create a second cells2keep file that includes all mouse cells from combined PDX samples.",
