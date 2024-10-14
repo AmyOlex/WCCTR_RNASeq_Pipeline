@@ -208,10 +208,6 @@ for(i in 1:dim(toProcess)[1]){
   # Initialize the Seurat object
   scPDX <- CreateSeuratObject(counts = scPDX.data, project = sampleID, min.cells = 0, min.features = 0)
   
-  metadata_ncount[[sampleID]] <- scPDX$nCount_RNA
-  metadata_nfeature[[sampleID]] <- scPDX$nFeature_RNA
-  metadata_mito[[sampleID]] <- scPDX$percent.mt
-  
   # Run ambient RNA adjustment FIRST, before excluding or doing any further processing
   if(ambientRNAadjust){
     print("Ambient RNA Adjusment...")
@@ -373,6 +369,11 @@ for(i in 1:dim(toProcess)[1]){
 
   dev.off()
   
+  ## Save stats
+  metadata_ncount[[sampleID]] <- scPDX$nCount_RNA
+  metadata_nfeature[[sampleID]] <- scPDX$nFeature_RNA
+  metadata_mito[[sampleID]] <- scPDX$percent.mt
+  
 }
 
 close(g)
@@ -425,10 +426,9 @@ png(file = paste0(reportDir, runID, "_percentMitoDensity.png"), width = 2000, he
     meta_mito %>% 
       ggplot(aes(color=Sample, x=PercentMito, fill= Sample)) + 
       geom_density(alpha = 0.2) + 
-      scale_x_log10() + 
       theme_classic() +
       ylab("Cell Count Density") +
-      geom_vline(xintercept = 1000)
+      geom_vline(xintercept = 25)
 
 dev.off()
 
