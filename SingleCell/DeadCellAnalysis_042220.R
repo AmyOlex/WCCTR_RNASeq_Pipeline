@@ -18,7 +18,7 @@
 # UPDATE 10/13/23: Added a filter so that if the mito cutoff is less than 5% it uses 25% automatically.  
 #                   I actually had a sample where the cutoff was zero!  For these PDX samples we know that 25% is ok.
 # UPDATE 10/13/24:Getting errors about the Seurat object slot name.  Apollo uses Seurat v5, so updating. 
-#                 Also changing harcoded paths to Apollo pathnames.
+#                 Also changing harcoded paths to Apollo pathnames. Also added the ability to enter in custom QC cutoffs using the config file.
 
 
 library("Seurat")
@@ -133,7 +133,7 @@ ambientRNAadjust <- opt$ambientRNAadjust
 useCustomCutoffs <- opt$customCutoffs
 
 #### Debug Options
-debug = TRUE
+debug = FALSE
 if(debug){
   runID <- "FindDeadCells_mito13human_CRv8_241012"
   inFile <- "/lustre/home/mccbnfolab/Harada-Deb_P01/Harada_Project1_scRNAseq/config/05_FindeDeadCells/CRv8_singleSampleAnalyses_FindDeadCells_grch38_NextSeq240828_241012.list"
