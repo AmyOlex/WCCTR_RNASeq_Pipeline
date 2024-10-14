@@ -177,7 +177,9 @@ if(ambientRNAadjust){
   writeLines(c("RunID\tSampleID\tKeptCells\tDeadCells\t%Removed\tMitoCutoff\tlog(nFeatureRange)\tlog(nCountRange)"), g)
 }
 
-metadata <- list()
+metadata_ncount <- list()
+metadata_mito <- list()
+metadata_nfeature <- list()
 
 for(i in 1:dim(toProcess)[1]){
   print(paste("Processing row", i, "from sample", toProcess[i,1]))
@@ -206,7 +208,9 @@ for(i in 1:dim(toProcess)[1]){
   # Initialize the Seurat object
   scPDX <- CreateSeuratObject(counts = scPDX.data, project = sampleID, min.cells = 0, min.features = 0)
   
-  metadata[[sampleID]] <- scPDX$nCount_RNA
+  metadata_ncount[[sampleID]] <- scPDX$nCount_RNA
+  metadata_nfeature[[sampleID]] <- scPDX$nFeature_RNA
+  metadata_mito[[sampleID]] <- scPDX$percent.mt
   
   # Run ambient RNA adjustment FIRST, before excluding or doing any further processing
   if(ambientRNAadjust){
@@ -372,6 +376,76 @@ for(i in 1:dim(toProcess)[1]){
 }
 
 close(g)
+
+
+
+## Create metadata sample comparison
+## Plot idea from: https://hbctraining.github.io/scRNA-seq/lessons/04_SC_quality_control.html
+library(dplyr)
+library(ggplot2)
+
+png(file = paste0(reportDir, runID, "_nCountDensity.png"), width = 2000, height = 1000, res = 200)
+
+    meta_ncount <- as.data.frame(reshape2::melt(metadata_ncount))
+    names(meta_ncount) <- c("nCount", "Sample")
+    
+    # Visualize the number UMIs/transcripts per cell
+    meta_ncount %>% 
+      ggplot(aes(color=Sample, x=nCount, fill= Sample)) + 
+      geom_density(alpha = 0.2) + 
+      scale_x_log10() + 
+      theme_classic() +
+      ylab("Cell Count Density") +
+      geom_vline(xintercept = 1000)
+    
+dev.off()
+
+png(file = paste0(reportDir, runID, "_nFeatureDensity.png"), width = 2000, height = 1000, res = 200)
+    
+    meta_nfeature <- as.data.frame(reshape2::melt(metadata_nfeature))
+    names(meta_nfeature) <- c("nFeature", "Sample")
+    
+    # Visualize the number UMIs/transcripts per cell
+    meta_nfeature %>% 
+      ggplot(aes(color=Sample, x=nFeature, fill= Sample)) + 
+      geom_density(alpha = 0.2) + 
+      scale_x_log10() + 
+      theme_classic() +
+      ylab("Cell Count Density") +
+      geom_vline(xintercept = 1000)
+
+dev.off()
+
+png(file = paste0(reportDir, runID, "_percentMitoDensity.png"), width = 2000, height = 1000, res = 200)
+
+    meta_mito <- as.data.frame(reshape2::melt(metadata_mito))
+    names(meta_mito) <- c("PercentMito", "Sample")
+    
+    # Visualize the number UMIs/transcripts per cell
+    meta_mito %>% 
+      ggplot(aes(color=Sample, x=PercentMito, fill= Sample)) + 
+      geom_density(alpha = 0.2) + 
+      scale_x_log10() + 
+      theme_classic() +
+      ylab("Cell Count Density") +
+      geom_vline(xintercept = 1000)
+
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 print("Completed all samples!")
 
 sessionInfo()
