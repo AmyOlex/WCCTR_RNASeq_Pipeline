@@ -17,6 +17,8 @@
 # UPDATE 8/4/23: Added an option to adjust read counts for ambient RNA.  Must provide the location of the 10X formatted raw_feature_bc_matrix files.
 # UPDATE 10/13/23: Added a filter so that if the mito cutoff is less than 5% it uses 25% automatically.  
 #                   I actually had a sample where the cutoff was zero!  For these PDX samples we know that 25% is ok.
+# UPDATE 10/13/24:Getting errors about the Seurat object slot name.  Apollo uses Seurat v5, so updating. 
+#                 Also changing harcoded paths to Apollo pathnames.
 
 
 library("Seurat")
@@ -75,7 +77,11 @@ option_list = list(
   
   make_option(c("--ambientRNAadjust"), type="logical", 
               help="Optional. Uses SoupX to adjust for ambient RNA contamination. MUST have a column in input CSV named raw10Xdata that lists the full path to the raw_feature_bc_matrix file in 10X format. (Default = FALSE).",
-              default = FALSE, action = "store_true", metavar="logical")
+              default = FALSE, action = "store_true", metavar="logical"),
+  
+  make_option(c("--customCutoffs"), type="logical", 
+              help="Include if custom cutoffs for mito content, nCount, and nFeature are included in the config file. nCount and nFeature should be ranges formatted as lower-upper (e.g. 500-125000 for nCount). Must be specified in the last 3 columns in that order: mito%, nCount, nFeature. Default is FALSE", 
+              default = FALSE, action = "store_true", metavar="logical"),
   
 #  make_option(c("--usegem"), type="logical", 
 #              help="flags script to utilize the gem files associated with the inputs to create a second cells2keep file that includes all mouse cells from combined PDX samples.",
@@ -105,13 +111,13 @@ if (is.null(opt$mitoFile)){
     stop("Mito files for coding and noncoding merged genome files not avaliable.  Use --mitoFile option to specify a file.", call.=FALSE)
   }
   mitoFile <- switch(mitoflag, 
-                    "codinghuman" = "/home/scRNASeq/harrell_data/Harrell_SingleCellSequencing/referenceFiles/MitoCodingGenes13_human.txt", 
-                    "noncodinghuman" = "/home/scRNASeq/harrell_data/Harrell_SingleCellSequencing/referenceFiles/MitoNonCodingGenes24_human.txt", 
-                    "allhuman" = "/home/scRNASeq/harrell_data/Harrell_SingleCellSequencing/referenceFiles/MitoAllGenes37_human.txt", 
-                    "codingmouse" = "/home/scRNASeq/harrell_data/Harrell_SingleCellSequencing/referenceFiles/MitoCodingGenes13_mouse.txt", 
-                    "noncodingmouse" = "/home/scRNASeq/harrell_data/Harrell_SingleCellSequencing/referenceFiles/MitoNonCodingGenes24_mouse.txt", 
-                    "allmouse" = "/home/scRNASeq/harrell_data/Harrell_SingleCellSequencing/referenceFiles/MitoAllGenes37_mouse.txt", 
-                    "allmerged" = "/home/scRNASeq/harrell_data/Harrell_SingleCellSequencing/referenceFiles/MitoMasterList_37_hg19mm10.txt")
+                    "codinghuman" = "/lustre/home/harrell_lab/scRNASeq/Harrell_SingleCellSequencing/referenceFiles/MitoCodingGenes13_human.txt", 
+                    "noncodinghuman" = "/lustre/home/harrell_lab/scRNASeq/Harrell_SingleCellSequencing/referenceFiles/MitoNonCodingGenes24_human.txt", 
+                    "allhuman" = "/lustre/home/harrell_lab/scRNASeq/Harrell_SingleCellSequencing/referenceFiles/MitoAllGenes37_human.txt", 
+                    "codingmouse" = "/lustre/home/harrell_lab/scRNASeq/Harrell_SingleCellSequencing/referenceFiles/MitoCodingGenes13_mouse.txt", 
+                    "noncodingmouse" = "/lustre/home/harrell_lab/scRNASeq/Harrell_SingleCellSequencing/referenceFiles/MitoNonCodingGenes24_mouse.txt", 
+                    "allmouse" = "/lustre/home/harrell_lab/scRNASeq/Harrell_SingleCellSequencing/referenceFiles/MitoAllGenes37_mouse.txt", 
+                    "allmerged" = "/lustre/home/harrell_lab/scRNASeq/Harrell_SingleCellSequencing/referenceFiles/MitoMasterList_37_hg19mm10.txt")
   
   
 } else {
@@ -124,6 +130,20 @@ reportDir <- opt$outdir
 reportName <- paste0(reportDir, runID, "_DeadCellReport.txt")
 exclude <- opt$excludeCells
 ambientRNAadjust <- opt$ambientRNAadjust
+useCustomCutoffs <- opt$customCutoffs
+
+#### Debug Options
+debug = TRUE
+if(debug){
+  runID <- "FindDeadCells_mito13human_CRv8_241012"
+  inFile <- "/lustre/home/mccbnfolab/Harada-Deb_P01/Harada_Project1_scRNAseq/config/05_FindeDeadCells/CRv8_singleSampleAnalyses_FindDeadCells_grch38_NextSeq240828_241012.list"
+  reportDir <- "/lustre/home/mccbnfolab/Harada-Deb_P01/Harada_Project1_scRNAseq/"
+  reportName <- paste0(reportDir, runID, "_DeadCellReport.txt")
+  exclude <- FALSE
+  ambientRNAadjust <- FALSE
+  mitoFile <- "/lustre/home/harrell_lab/scRNASeq/Harrell_SingleCellSequencing/referenceFiles/MitoCodingGenes13_human.txt"
+  useCustomCutoffs <- TRUE
+}
 
 #### Ok, print out all the current running options as a summary.
 
@@ -134,6 +154,7 @@ print(paste("Report Output:", reportName))
 print(paste("Mitochandria Gene List:", mitoFile))
 print(paste("Excluding cells?", exclude))
 print(paste("Adjusting for ambient RNA: ", ambientRNAadjust))
+print(paste("Using custom Cutoffs: "), useCustomCutoffs)
 
 # Read in the provided config file and loop for each row.
 toProcess = read.table(inFile, header=FALSE, sep="\t")
@@ -156,16 +177,24 @@ if(ambientRNAadjust){
   writeLines(c("RunID\tSampleID\tKeptCells\tDeadCells\t%Removed\tMitoCutoff\tlog(nFeatureRange)\tlog(nCountRange)"), g)
 }
 
+metadata <- list()
+
 for(i in 1:dim(toProcess)[1]){
   print(paste("Processing row", i, "from sample", toProcess[i,1]))
   
   sampleID = as.character(toProcess[i,1])
   datadir = as.character(toProcess[i,2])
+
+  print(paste("Sample ID:", sampleID))
+  print(paste("My Data Dir:", datadir))
+  if(useCustomCutoffs){
+    print(paste("Custom Cutoffs:MitoPercent: ", toProcess[i,3], "nCount_RNA: ", toProcess[i,4], "nFeature_RNA: ", toProcess[i,5]))
+  }
   
   if(exclude){excludeFile = as.character(toProcess[i,3])}
   
-  x10dir = paste0(datadir,"/filtered_feature_bc_matrix")
-  savedir = paste0(datadir, "/analysis_deadcells/")
+  x10dir = paste0(datadir,"filtered_feature_bc_matrix")
+  savedir = paste0(datadir, "analysis_deadcells/")
  # gemfile = paste0(datadir, "analysis/gem_classification.csv")
   
   print(paste("Saving file in: ", savedir))
@@ -176,6 +205,8 @@ for(i in 1:dim(toProcess)[1]){
   scPDX.data <- Read10X(data.dir = x10dir)
   # Initialize the Seurat object
   scPDX <- CreateSeuratObject(counts = scPDX.data, project = sampleID, min.cells = 0, min.features = 0)
+  
+  metadata[[sampleID]] <- scPDX$nCount_RNA
   
   # Run ambient RNA adjustment FIRST, before excluding or doing any further processing
   if(ambientRNAadjust){
@@ -226,35 +257,41 @@ for(i in 1:dim(toProcess)[1]){
   
   png(file = paste0(savedir, runID, "_", sampleID, "_MitoViolinPlot_BEFORE.png"), width = 2000, height = 1000, res = 200)
 
-    print(VlnPlot(scPDX, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3, pt.size = .4))
+    print(VlnPlot(scPDX, layer = "counts", features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3, pt.size = .4))
 
   dev.off()
   
   
-  ## Identify MAD cutoff using only those cells that are <=50% mt.
-  my_mad <- mad(scPDX$percent.mt[scPDX$percent.mt <= 50])
-  my_median <- median(scPDX$percent.mt[scPDX$percent.mt <= 50])
-  
-  mad3mt <- my_mad*3+my_median
-  
-  #mad3mt <- mad(scPDX$percent.mt)*3+median(scPDX$percent.mt)
+  if(!useCustomCutoffs){
+    
+    ## Identify MAD cutoff using only those cells that are <=50% mt.
+    my_mad <- mad(scPDX$percent.mt[scPDX$percent.mt <= 50])
+    my_median <- median(scPDX$percent.mt[scPDX$percent.mt <= 50])
+    mad3mt <- my_mad*3+my_median
 
-  if(mad3mt > 25){
-	print(paste("WARNING! Cutoff calculated to be > 25%: ", mad3mt, "\nSetting cutoff to 25%."))
-	mad3mt <- 25
+    if(mad3mt > 25){
+  	print(paste("WARNING! Cutoff calculated to be > 25%: ", mad3mt, "\nSetting cutoff to 25%."))
+  	mad3mt <- 25
+    }
+    
+    if(mad3mt < 5){
+      print(paste("WARNING! Cutoff calculated to be < 5%: ", mad3mt, "\nSetting cutoff to 25%."))
+      mad3mt <- 25
+    }
+    
+    mad3countBelow <- median(log(scPDX$nCount_RNA)) - mad(log(scPDX$nCount_RNA))*3
+    mad3featureBelow <- median(log(scPDX$nFeature_RNA)) - mad(log(scPDX$nFeature_RNA))*3
+    
+    mad3countAbove <- median(log(scPDX$nCount_RNA)) + mad(log(scPDX$nCount_RNA))*2.5
+    mad3featureAbove <- median(log(scPDX$nFeature_RNA)) + mad(log(scPDX$nFeature_RNA))*3
   }
-  
-  if(mad3mt < 5){
-    print(paste("WARNING! Cutoff calculated to be < 5%: ", mad3mt, "\nSetting cutoff to 25%."))
-    mad3mt <- 25
+  else{
+    mad3mt <- as.integer(toProcess[i,3])
+    mad3countBelow <- log(as.integer(strsplit(toProcess[i,4], "-")[[1]][1]))
+    mad3countAbove <- log(as.integer(strsplit(toProcess[i,4], "-")[[1]][2]))
+    mad3featureBelow <- log(as.integer(strsplit(toProcess[i,5], "-")[[1]][1]))
+    mad3featureAbove <- log(as.integer(strsplit(toProcess[i,5], "-")[[1]][2]))
   }
-  
-  mad3countBelow <- median(log(scPDX$nCount_RNA)) - mad(log(scPDX$nCount_RNA))*3
-  mad3featureBelow <- median(log(scPDX$nFeature_RNA)) - mad(log(scPDX$nFeature_RNA))*3
-  
-  mad3countAbove <- median(log(scPDX$nCount_RNA)) + mad(log(scPDX$nCount_RNA))*3
-  mad3featureAbove <- median(log(scPDX$nFeature_RNA)) + mad(log(scPDX$nFeature_RNA))*3
-  
   ## Identify Cells to keep and Cells that are dead
   mitokeep <- names(scPDX$percent.mt)[scPDX$percent.mt < mad3mt]
   
@@ -267,7 +304,7 @@ for(i in 1:dim(toProcess)[1]){
   featurekeep <- intersect(featurekeepBelow, featurekeepAbove)
   
   cellstokeep <- intersect(intersect(mitokeep, countkeep), featurekeep)
-  deadcells <- scPDX@assays$RNA@data@Dimnames[[2]][!(scPDX@assays$RNA@data@Dimnames[[2]] %in% cellstokeep)]
+  deadcells <- names(scPDX$nFeature_RNA)[!(names(scPDX$nFeature_RNA) %in% cellstokeep)]
   
   #if(usegem){
   #  ## import GEM file
@@ -328,7 +365,7 @@ for(i in 1:dim(toProcess)[1]){
   
   png(file = paste0(savedir, runID, "_", sampleID, "_MitoViolinPlot_AFTER.png"), width = 2000, height = 1000, res = 200)
 
-    print(VlnPlot(scPDX_filt, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3, pt.size = .4))
+    print(VlnPlot(scPDX_filt, layer = "counts", features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3, pt.size = .4))
 
   dev.off()
   
@@ -336,4 +373,6 @@ for(i in 1:dim(toProcess)[1]){
 
 close(g)
 print("Completed all samples!")
+
+sessionInfo()
 
