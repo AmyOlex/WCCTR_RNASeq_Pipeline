@@ -39,6 +39,7 @@
 ## UPDATED 8/2/2023 to allow user option to do ambient RNA adjustments of read counts BEFORE any other processing is done on the data.
 ## UPDATED 1/23/2024 to utilize the new LoupeR package to directly generate a Loupe file.
 ## UPDATED 5/29/2024 to fix the annotation issue with the LoupeR package conversion.
+## UPDATED 10/14/2024 to add back in the regression of UMI, update accessor calls to use the new layers format of Seurat v5, and reduced the number of PCA dims to 25 by default.
 
 
 library(Seurat)
@@ -102,10 +103,10 @@ localtest = FALSE
 ###########################################
 #### Local Testing Block
 if(localtest){
-  setwd("/Users/alolex/Desktop/CCTR_LOCAL_Analysis_noBackups/Harrell_LocalTesting")
-  runID <- "TEST"
-  inFile <- "./configtest2.csv"
-  outDir <- "./"
+  setwd("/lustre/home/mccbnfolab/Harada-Deb_P01/Harada_Project1_scRNAseq/config/06_Merge")
+  runID <- "SimpleMerge_NextSeq240828_Log2Norm_GRCh38_241012"
+  inFile <- "/lustre/home/mccbnfolab/Harada-Deb_P01/Harada_Project1_scRNAseq/config/06_Merge/241012_SeuratSimpleMerge_NextSeq240828_GRCh38.csv"
+  outDir <- "/lustre/home/mccbnfolab/Harada-Deb_P01/Harada_Project1_scRNAseq/06_SimpleMerge/"
   features <- ""
   savedir <- paste0(outDir,runID)
   numCores <- 2
@@ -114,7 +115,7 @@ if(localtest){
   mergeType <- "simple"
   parallel <- FALSE
   saveH5 <- TRUE
-  species <- "mouse"
+  species <- "human"
   regressCC <- FALSE
   exclude <- ""
   downsample <- 100
@@ -122,7 +123,7 @@ if(localtest){
   exportCounts <- TRUE
   keep <- ""
   ambientRNAadjust <- FALSE
-  options(future.globals.maxSize = 3000 * 1024^2)
+  options(future.globals.maxSize = 8000 * 1024^2)
 }
 ###########################################
 
@@ -522,15 +523,16 @@ if(mergeType == "integration"){
 #### End Integration
 
 #### generate Loupe file without annotations
-print("Saving unannotated Loupe file...")
-create_loupe_from_seurat(seurat.merged, output_dir = outDir, output_name = paste0(runID,"_Seurat_",mergeType,"Merge_",normalization,".cloupe"))
+#print("Saving unannotated Loupe file...")
+#create_loupe_from_seurat(seurat.merged, output_dir = outDir, output_name = paste0(runID,"_Seurat_",mergeType,"Merge_",normalization,".cloupe"))
 
 
 ####
 ## Cell Cycle Scoring
 #####
 
-seurat.merged <- ScaleData(seurat.merged, features = rownames(seurat.merged))
+seurat.merged <- ScaleData(seurat.merged, vars.to.regress = c("nCount_RNA"), features = rownames(seurat.merged))
+seurat.merged <- JoinLayers(seurat.merged)
 seurat.merged <- CellCycleScoring(seurat.merged, g2m.features = g2m.genes, s.features = s.genes, set.ident = TRUE)
 
 cc <- data.frame("barcode" = names(seurat.merged$Phase), "CellCyclePhase" = seurat.merged$Phase)
@@ -540,22 +542,22 @@ write.csv(cc, paste0(savedir, "_CellCyclePhase_",mergeType,"MergedData.csv"), qu
 if(regressCC){
   print("Regressing out CC...")
   seurat.merged$CC.Difference <- seurat.merged$S.Score - seurat.merged$G2M.Score
-  seurat.merged <- ScaleData(seurat.merged, vars.to.regress = c("S.Score", "G2M.Score"), features = rownames(seurat.merged))
+  seurat.merged <- ScaleData(seurat.merged, vars.to.regress = c("nCount_RNA", "CC.Difference"), features = rownames(seurat.merged))
 }
 
 mid_time <- Sys.time()
 print("Saving to 10X...")
 ## Saving to 10X format:
 if(normalization == "SCT"){
-  write10xCounts(x=seurat.merged@assays$SCT@counts, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_SCTdata_rawCounts.h5"), version="3")
-  write10xCounts(x=seurat.merged@assays$RNA@counts, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_rawCounts.h5"), version="3")
-  write10xCounts(x=seurat.merged@assays$SCT@data, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_SCTdata_scaledCounts.h5"), version="3")
-  write10xCounts(x=seurat.merged@assays$RNA@data, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_scaledCounts.h5"), version="3")
+  write10xCounts(x=LayerData(seurat.merged, assay="SCT", layer='counts'), path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_SCTdata_rawCounts.h5"), version="3")
+  write10xCounts(x=LayerData(seurat.merged, assay="RNA", layer='counts'), path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_rawCounts.h5"), version="3")
+  write10xCounts(x=LayerData(seurat.merged, assay="SCT", layer='data'), path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_SCTdata_normalizedCounts.h5"), version="3")
+  write10xCounts(x=LayerData(seurat.merged, assay="RNA", layer='data'), path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_normalizedCounts.h5"), version="3")
 
   print(Sys.time() - mid_time)
 } else if(normalization == "LogNormalize"){
-  write10xCounts(x=seurat.merged@assays$RNA@counts, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_rawCounts.h5"), version="3")
-  write10xCounts(x=seurat.merged@assays$RNA@data, path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_scaledCounts.h5"), version="3")
+  write10xCounts(x=LayerData(seurat.merged, assay="RNA", layer='counts'), path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_rawCounts.h5"), version="3")
+  write10xCounts(x=LayerData(seurat.merged, assay="RNA", layer='data'), path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_normalizedCounts.h5"), version="3")
 
   print(Sys.time() - mid_time)
 }
@@ -597,21 +599,23 @@ write.csv(idents, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalizat
 
 
 for(n in 1:(dim(toProcess)[2]-1)){
-  idents <- data.frame(barcode = names(seurat.merged@active.ident), LibraryID = seurat.merged@active.ident)
-  anno <- idents
-  names(anno) <- c("barcode", names(toProcess)[n])
-  anno[,2] <- as.character(anno[,2])
-  
-  for(i in 1:dim(toProcess)[1]){
-    anno[anno[,2] == toProcess[i,1], 2] <- toProcess[i,n]
+  if(!(names(toProcess[n]) %in% c("DataType","SamplePath","Cells2Keep")))
+  {
+    idents <- data.frame(barcode = names(seurat.merged@active.ident), LibraryID = seurat.merged@active.ident)
+    anno <- idents
+    names(anno) <- c("barcode", names(toProcess)[n])
+    anno[,2] <- as.character(anno[,2])
+    
+    for(i in 1:dim(toProcess)[1]){
+      anno[anno[,2] == toProcess[i,1], 2] <- toProcess[i,n]
+    }
+    
+    seurat.merged@meta.data[names(toProcess)[n]] <- anno[,2,drop=FALSE]
+    
+    
+    ## Save Sample Annotations
+    write.csv(anno, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_", names(toProcess)[n], ".csv"), quote = FALSE, row.names = FALSE)
   }
-  
-  seurat.merged@meta.data[names(toProcess)[n]] <- anno[,2,drop=FALSE]
-  
-  
-  ## Save Sample Annotations
-  write.csv(anno, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_", names(toProcess)[n], ".csv"), quote = FALSE, row.names = FALSE)
-
 }
 
 
@@ -654,35 +658,35 @@ if(features != ""){
   seurat.merged <- RunPCA(seurat.merged, verbose = FALSE)
 }
 
-seurat.merged <- RunUMAP(seurat.merged, dims = 1:min(30,length(seurat.merged@reductions$pca)))
-seurat.merged <- RunTSNE(seurat.merged, dims = 1:min(30,length(seurat.merged@reductions$pca)), check_duplicates = FALSE)
+seurat.merged <- RunUMAP(seurat.merged, dims = 1:min(25,length(seurat.merged@reductions$pca)))
+seurat.merged <- RunTSNE(seurat.merged, dims = 1:min(25,length(seurat.merged@reductions$pca)), check_duplicates = FALSE)
 
 png(filename = paste0(savedir, "_pca.png"), res=150, width = 1100, height = 800)
-DimPlot(seurat.merged, reduction = "pca", group.by="orig.ident")
+  DimPlot(seurat.merged, reduction = "pca", group.by="orig.ident")
 dev.off()
 
 png(filename = paste0(savedir, "_umap.png"), res=150, width = 1100, height = 800)
-DimPlot(seurat.merged, reduction = "umap", group.by="orig.ident")
+  DimPlot(seurat.merged, reduction = "umap", group.by="orig.ident")
 dev.off()
 
 png(filename = paste0(savedir, "_tsne.png"), res=150, width = 1100, height = 800)
-DimPlot(seurat.merged, reduction = "tsne", group.by="orig.ident")
+  DimPlot(seurat.merged, reduction = "tsne", group.by="orig.ident")
 dev.off()
 
 if(features != ""){
-  write.csv(seurat.merged@reductions$umap@cell.embeddings, file = paste0(savedir, "_UMAPCoordinates_30PCs_",mergeType,"Merge_",normalization,"_wFeatureSubset.csv"), quote = FALSE)
-  write.csv(seurat.merged@reductions$tsne@cell.embeddings, file = paste0(savedir, "_tSNECoordinates_30PCs_",mergeType,"Merge_",normalization,"_wFeatureSubset.csv"), quote = FALSE)
+  write.csv(seurat.merged@reductions$umap@cell.embeddings, file = paste0(savedir, "_UMAPCoordinates_25PCs_",mergeType,"Merge_",normalization,"_wFeatureSubset.csv"), quote = FALSE)
+  write.csv(seurat.merged@reductions$tsne@cell.embeddings, file = paste0(savedir, "_tSNECoordinates_25PCs_",mergeType,"Merge_",normalization,"_wFeatureSubset.csv"), quote = FALSE)
   print(Sys.time() - mid_time)
 } else {
-  write.csv(seurat.merged@reductions$umap@cell.embeddings, file = paste0(savedir, "_UMAPCoordinates_30PCs_",mergeType,"Merge_",normalization,".csv"), quote = FALSE)
-  write.csv(seurat.merged@reductions$tsne@cell.embeddings, file = paste0(savedir, "_tSNECoordinates_30PCs_",mergeType,"Merge_",normalization,".csv"), quote = FALSE)
+  write.csv(seurat.merged@reductions$umap@cell.embeddings, file = paste0(savedir, "_UMAPCoordinates_25PCs_",mergeType,"Merge_",normalization,".csv"), quote = FALSE)
+  write.csv(seurat.merged@reductions$tsne@cell.embeddings, file = paste0(savedir, "_tSNECoordinates_25PCs_",mergeType,"Merge_",normalization,".csv"), quote = FALSE)
   print(Sys.time() - mid_time)
 }
 
 print("SNN Clustering...")
 mid_time <- Sys.time()
 ### Cluster the Data
-seurat.merged <- FindNeighbors(seurat.merged, reduction = "pca", dims = 1:min(30,length(seurat.merged@reductions$pca)), graph.name = "merged_snn")
+seurat.merged <- FindNeighbors(seurat.merged, reduction = "pca", dims = 1:min(25,length(seurat.merged@reductions$pca)), graph.name = "merged_snn")
 seurat.merged <- FindClusters(seurat.merged, resolution = 0.4, graph.name = "merged_snn")
 seurat.merged <- FindClusters(seurat.merged, resolution = 0.6, graph.name = "merged_snn")
 
