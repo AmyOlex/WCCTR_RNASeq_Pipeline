@@ -29,10 +29,10 @@ library(Seurat)
 library(optparse)
 
 ## Tested successfully on the following dataset:
-runID<- "SimpleMerge_Mouse_UntreatedOnly_noForce_Log2_GRCh38_240830_Seurat_simpleMerge_LogNorm"
-outDir <- "/lustre/home/alolex/SwatiDeb_R01_Cell2Cell-Communication/data/"
-inFile <- "/lustre/home/alolex/SwatiDeb_R01_Cell2Cell-Communication/data/SimpleMerge_Mouse_noForce_Log2_GRCh38_UntreatedOnly_240830_Seurat_simpleMerge_LogNormalize_Annotated.rds"
-slot = "data"
+#runID<- "SimpleMerge_Mouse_UntreatedOnly_noForce_Log2_GRCh38_240830_Seurat_simpleMerge_LogNorm"
+#outDir <- "/lustre/home/alolex/SwatiDeb_R01_Cell2Cell-Communication/data/"
+#inFile <- "/lustre/home/alolex/SwatiDeb_R01_Cell2Cell-Communication/data/SimpleMerge_Mouse_noForce_Log2_GRCh38_UntreatedOnly_240830_Seurat_simpleMerge_LogNormalize_Annotated.rds"
+#slot = "data"
 
 options(future.globals.maxSize = 100000 * 1024^2)
 
