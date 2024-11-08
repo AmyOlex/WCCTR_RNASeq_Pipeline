@@ -154,7 +154,7 @@ print(paste("Report Output:", reportName))
 print(paste("Mitochandria Gene List:", mitoFile))
 print(paste("Excluding cells?", exclude))
 print(paste("Adjusting for ambient RNA: ", ambientRNAadjust))
-print(paste("Using custom Cutoffs: "), useCustomCutoffs)
+print(paste("Using custom Cutoffs: ", useCustomCutoffs))
 
 # Read in the provided config file and loop for each row.
 toProcess = read.table(inFile, header=FALSE, sep="\t")
