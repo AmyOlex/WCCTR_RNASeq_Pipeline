@@ -182,6 +182,9 @@ option_list = list(
   make_option(c("--regressCellCycle"), type="logical", 
               help="Optional. Regress out the cell cycle difference between S and G2M scores during normalization (Default = FALSE).",
               default = FALSE, action = "store_true", metavar="logical"),
+  make_option(c("--regressUMI"), type="logical", 
+              help="Optional. Regress out the UMI counts during normalization (Default = FALSE).",
+              default = FALSE, action = "store_true", metavar="logical"),
   make_option(c("--ambientRNAadjust"), type="logical", 
               help="Optional. Uses SoupX to adjust for ambient RNA contamination. MUST have a column in input CSV named 'raw10Xdata' that lists the full path to the raw_feature_bc_matrix file in 10X format. (Default = FALSE).",
               default = FALSE, action = "store_true", metavar="logical")
@@ -215,6 +218,7 @@ mergeType <- opt$type
 features <- opt$features
 filtercells <- opt$filter
 regressCC <- opt$regressCellCycle
+regressUMI <- opt$regressUMI
 downsample <- opt$downsample
 exclude <- opt$exclude
 species <- opt$species
@@ -248,6 +252,7 @@ print(paste("Integration/Normalization Type: ", normalization))
 print(paste("Filtering Cells: ", filtercells))
 print(paste("Using Parallel: ", parallel))
 print(paste("Saving h5Seurat file: ", saveH5))
+print(paste("Regressing out UMI count: ", regressUMI))
 print(paste("Regressing out S-G2M cell cycle score: ", regressCC))
 print(paste("Percent of cells to keep in downsampling: ", downsample))
 print(paste("Excluding cells in file: ", exclude))
@@ -531,18 +536,24 @@ if(mergeType == "integration"){
 ## Cell Cycle Scoring
 #####
 
-seurat.merged <- ScaleData(seurat.merged, vars.to.regress = c("nCount_RNA"), features = rownames(seurat.merged))
+
+seurat.merged <- ScaleData(seurat.merged, features = rownames(seurat.merged))
 seurat.merged <- JoinLayers(seurat.merged)
 seurat.merged <- CellCycleScoring(seurat.merged, g2m.features = g2m.genes, s.features = s.genes, set.ident = TRUE)
+seurat.merged$CC.Difference <- seurat.merged$S.Score - seurat.merged$G2M.Score
 
 cc <- data.frame("barcode" = names(seurat.merged$Phase), "CellCyclePhase" = seurat.merged$Phase)
 write.csv(cc, paste0(savedir, "_CellCyclePhase_",mergeType,"MergedData.csv"), quote=FALSE, row.names = FALSE)
 #DimPlot(seurat.merged, group.by = "Phase", reduction = "umap", label=FALSE)
 
-if(regressCC){
-  print("Regressing out CC...")
-  seurat.merged$CC.Difference <- seurat.merged$S.Score - seurat.merged$G2M.Score
-  seurat.merged <- ScaleData(seurat.merged, vars.to.regress = c("nCount_RNA", "CC.Difference"), features = rownames(seurat.merged))
+if(regressCC | regressUMI){
+  to_regress <- c()
+  if(regressUMI){c(to_regress,"nCount_RNA")}
+  if(regressCC){c(to_regress,"CC.Difference")}
+  
+  print("Regressing out UMI and/or CC...")
+  
+  seurat.merged <- ScaleData(seurat.merged, vars.to.regress = to_regress, features = rownames(seurat.merged))
 }
 
 mid_time <- Sys.time()
@@ -708,7 +719,7 @@ if(features != ""){
 print(Sys.time() - mid_time)
 
 print("Saving Loupe file...")
-create_loupe_from_seurat(seurat.merged, output_dir = outDir, output_name = paste0(runID,"_Seurat_",mergeType,"Merge_",normalization,"_Annotated.cloupe"))
+create_loupe_from_seurat(seurat.merged, output_dir = outDir, output_name = paste0(runID,"_Seurat_",mergeType,"Merge_",normalization,"_Annotated"))
 
 
 print("Saving Annotated Seurat File...")
