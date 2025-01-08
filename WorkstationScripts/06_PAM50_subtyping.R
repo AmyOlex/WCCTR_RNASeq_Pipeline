@@ -52,11 +52,11 @@ localtest = FALSE
 ###########################################
 #### Local Testing Block
 if(localtest){
-  setwd("/Users/alolex/Desktop/CCTR_LOCAL_Analysis_noBackups/Harrell_LocalTesting/bulk_PAM50_testing/")
+  setwd("~/test/")
   runID <- "TEST"
-  countFile <- "BulkRNASeq2024_AllGenes_02.16.24_Human_counts.tsv"
-  sampleFile <- "BulkRNASeq2024_samples.tsv"
-  outDir <- "./"
+  countFile <- "/lustre/home/harrell_lab/bulkRNASeq/05_featureCountMatrix/BulkRNASeq_AllGenes_06.20.24_Human_counts.tsv"
+  sampleFile <- "/lustre/home/harrell_lab/bulkRNASeq/config/PAM50_SampleSheet_062024.csv"
+  outDir <- "~/test/"
   savedir <- paste0(outDir,runID)
   options(future.globals.maxSize = 3000 * 1024^2)
 }
@@ -118,12 +118,16 @@ names(raw_counts) <- make.names(names(raw_counts), allow_ = FALSE)
 genes <- raw_counts[,"geneSym",drop=FALSE]
 raw_counts <- raw_counts[,-1]
 
-samps <- read.delim(sampleFile, row.names=1)
-##subset the samples
-samples <- samps[names(raw_counts),]
+### Removing SampleSheet Requirement
+### I don't need it and with the new non-breast PDXs coming in it will disrupt this workflow.
+#samps <- read.delim(sampleFile, row.names=1, sep = ",")
+###subset the samples
+#samples <- samps[row.names(samps) %in% names(raw_counts),]
 
-all(row.names(samples)==names(raw_counts))
+#all(row.names(samples)==names(raw_counts))
 
+# create a sample sheet
+samples <- data.frame(PAM50 = rep(0, dim(raw_counts)[2]), row.names = names(raw_counts))
 
 
 # remove rows with zero expression.
@@ -199,10 +203,10 @@ trainingData$xd <- trainingData$xd[rownames(trainingData$xd) %in% overlappingCL_
 
 # Scale normalized data and training data
 #normalized_counts_filt_scaled <- t(scale(t(normalized_counts_filt), scale = TRUE, center = TRUE))
-normalized_counts_filt_scaled <- medianCtr(t(normalized_counts_filt))
+normalized_counts_filt_scaled <- t(medianCtr(t(normalized_counts_filt)))
 
 
-normalized_counts_filt_scaled <- normalized_counts_filt_scaled[overlappingCL_entrezID$Gene.Symbol, ]
+normalized_counts_filt_scaled <- normalized_counts_filt_scaled[overlappingCL_entrezID$Gene.Symbol,]
 row.names(normalized_counts_filt_scaled) <- overlappingCL_entrezID$EntrezGene.ID
 
 #trainingData$xd <- t(scale(t(trainingData$xd), scale = TRUE, center = TRUE))

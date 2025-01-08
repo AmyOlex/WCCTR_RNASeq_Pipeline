@@ -1,5 +1,5 @@
 ## Amy Olex
-## 10.28.21
+## 10.15.2024
 ## Analysis to create initial heatmaps.  
 
 library(ComplexHeatmap)
@@ -7,7 +7,9 @@ library(RNASeqBits)
 library(ggplot2)
 library(ggrepel)
 
-setwd("/Volumes/GoogleDrive/My Drive/Active Collaborations/CHarrell/2022_Bulk_RNASeq/")
+WD <- "/lustre/home/harrell_lab/bulkRNASeq/"
+DATADIR <- "05_featureCountMatrix"
+setwd(WD)
 
 ## Import Quantile Normalized Log2 TPM Data with zero exp genes removed
 human_TPM <- read.delim("processed_data/log2TPM_human_ZeroExpRemoved_QuantileNorm_2022_BulkRNASeq_04.13.22.tsv", header=TRUE, row.names=1, stringsAsFactor=FALSE)

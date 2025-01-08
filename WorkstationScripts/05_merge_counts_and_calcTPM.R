@@ -11,6 +11,7 @@
 ## UPDATES:
 ## 2/16/24 - Updating script to account for technical replicates.  If these are found, then they are summed into a single column before being added to the count matrix.
 ## 6/21/24 - Adding some debugging print statements
+## 12/18/24 - This script is no longer used as we are switching to the JAX PDXNet pipeline for all processing. A new script named "merge_jax_counts.R" was created based of of this one to get the read counts, TPM and gene metadata. 
 
 library(readr)
 library(AnnotationHub)
