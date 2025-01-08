@@ -52,8 +52,10 @@ if(localtest){
 option_list = list(
   make_option(c("-r", "--runid"), type="character", default=NULL, 
               help="Required. A unique name for this dataset.", metavar="character"),
-  make_option(c("-c", "--configfile"), type="character", 
-              help="Required. Input config file with sample information. Should include the columns: Name, File", metavar="character"),
+  #make_option(c("-c", "--configfile"), type="character", 
+  #            help="Required. Input config file with sample information. Should include the columns: Name, File", metavar="character"),
+  make_option(c("-d", "--indir"), type="character", 
+              help="Required. Input directory with files, or symlinks to files to include in the merged output.", metavar="character"),
   make_option(c("-o", "--outdir"), type="character", 
               help="Output directory to save results (must already exist). Default is current directory.",
               default = "./", metavar="character"),
@@ -78,14 +80,14 @@ if (is.null(opt$runid)){
   stop("A unique analysis name must be provided.", call.=FALSE)
 }
 
-if (is.null(opt$configfile)){
+if (is.null(opt$indir)){
   print_help(opt_parser)
-  stop("A configuration file with sample information must be provided.", call.=FALSE)
+  stop("An input directory where count files are located is required.", call.=FALSE)
 }
 
 
 runID <- opt$runid
-inDir <- opt$configfile
+inDir <- opt$indir
 outDir <- opt$outdir
 savedir <- paste0(outDir,"/",runID)
 species <- opt$species
@@ -119,9 +121,11 @@ merged_tpm <- merged_counts
 merged_fpkm <- merged_counts
 merged_iso <- merged_counts
 
+print("Processing Samples:")
 
 for(i in seq_along(toProcess$File)){
   message(toProcess$Name[i], " ", appendLF = FALSE)
+  print(toProcess$Name[i])
   rawdata <- read.table(toProcess$File[i], header = TRUE)
   row.names(rawdata) <- rawdata[,IdCol]
   
@@ -144,15 +148,16 @@ for(i in seq_along(toProcess$File)){
 }
 
 # Save files
-write.table(merged_counts, file=paste0(savedir, runID, "_counts.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
-write.table(merged_tpm, file=paste0(savedir, runID, "_TPM.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
-write.table(merged_fpkm, file=paste0(savedir, runID, "_FPKM.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
+write.table(merged_counts, file=paste0(savedir, "_counts.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
+write.table(merged_tpm, file=paste0(savedir, "_TPM.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
+write.table(merged_fpkm, file=paste0(savedir, "_FPKM.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
 
 if(ctype=="ISOFORM"){
-  write.table(merged_iso, file=paste0(savedir, runID, "_IsoPct.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
+  write.table(merged_iso, file=paste0(savedir, "_IsoPct.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
   
 }
 
+print(paste("COMPLETED ", runID))
+print(paste("Number of samples processed: ", length(toProcess$File)))
 
-print("COMPLETED")
 
