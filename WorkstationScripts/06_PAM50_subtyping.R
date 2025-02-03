@@ -1,5 +1,5 @@
 ## Bulk RNASeq PAM50 subtyping
-## Amy Olex 
+## Amy Olex
 ## 2/15/2024
 
 library("optparse")
@@ -20,26 +20,35 @@ getGenefuEntrezAnnots <- function(my_keys){
   ### get Entrez IDs
   gene.list1 <- mapIds(org.Hs.eg.db, keys = my_keys, column = "ENTREZID", keytype = "ENSEMBL")
   gene.list2 <- mapIds(org.Hs.eg.db, keys = my_keys, column = "SYMBOL", keytype = "ENSEMBL")
-  
+
   gene.list <- merge(as.data.frame(gene.list1), as.data.frame(gene.list2), by="row.names", all=FALSE)
-  
+
   ## remove NA's
   gene.list.filt <- gene.list[which(!(is.na(gene.list$gene.list1) & is.na(gene.list$gene.list2))),]
   names(gene.list.filt) <- c("Ensembl.ID","EntrezGene.ID", "Gene.Symbol")
   row.names(gene.list.filt) <- gene.list.filt$Ensembl.ID
-  
+
   return(gene.list.filt)
 }
 
 formatPAM50Predictions <- function(preds){
-  
+
   preds[preds == 0] <- NA
   melt_preds <- melt(preds, na.rm=TRUE)
   row.names(melt_preds) <- melt_preds$Var1
   melt_preds <- melt_preds[,"Var2", drop=FALSE]
   names(melt_preds) <- "PAM50"
-  
+
   return(melt_preds)
+}
+
+## Function provided by Microsoft Copilot, February 2025.
+split_if_needed <- function(x) {
+  if (grepl("_", x)) {
+    return(strsplit(x, "_")[[1]][1])
+  } else {
+    return(x)
+  }
 }
 
 
@@ -52,11 +61,14 @@ localtest = FALSE
 ###########################################
 #### Local Testing Block
 if(localtest){
-  setwd("~/test/")
+  setwd("./")
   runID <- "TEST"
-  countFile <- "/lustre/home/harrell_lab/bulkRNASeq/05_featureCountMatrix/BulkRNASeq_AllGenes_06.20.24_Human_counts.tsv"
-  sampleFile <- "/lustre/home/harrell_lab/bulkRNASeq/config/PAM50_SampleSheet_062024.csv"
-  outDir <- "~/test/"
+  countFile2 <- "/lustre/home/harrell_lab/bulkRNASeq/05_featureCountMatrix/BulkRNASeq_AllGenes_06.20.24_Human_counts.tsv"
+  #sampleFile <- "/lustre/home/harrell_lab/bulkRNASeq/config/PAM50_SampleSheet_062024.csv"
+  countFile <- "/lustre/home/harrell_lab/bulkRNASeq/05_featureCountMatrix/25.01.31_VCU-BC_PAM50_RSEM_counts.tsv"
+
+
+  outDir <- "./"
   savedir <- paste0(outDir,runID)
   options(future.globals.maxSize = 3000 * 1024^2)
 }
@@ -65,19 +77,19 @@ if(localtest){
 
 
 option_list = list(
-  make_option(c("-r", "--runid"), type="character", default=NULL, 
+  make_option(c("-r", "--runid"), type="character", default=NULL,
               help="Required. A unique name for this analysis.", metavar="character"),
-  
-  make_option(c("-c", "--countfile"), type="character", 
+
+  make_option(c("-c", "--countfile"), type="character",
               help="Path and file name of the input raw count data. The first column should be named geneSym and contain the gene symbols for each row.", metavar="character"),
-  
-  make_option(c("-s", "--samplefile"), type="character", 
+
+  make_option(c("-s", "--samplefile"), type="character",
               help="Path and file name of the input sample data. Generally retrieved from the master sample sheet. Should at least have the following columns: Sample.ID, Tissue, Treatment, Percent.Human.", metavar="character"),
 
-  make_option(c("-o", "--outdir"), type="character", 
+  make_option(c("-o", "--outdir"), type="character",
               help="output directory for results report (must already exist). Default is current directory.",
               default = "./", metavar="character")
-); 
+);
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
@@ -114,6 +126,8 @@ print(paste("Output Directory:" , outDir))
 
 # Load in data
 raw_counts <- read.delim(countFile, row.names=1)
+formatted_rownames <- sapply(row.names(raw_counts), split_if_needed)
+row.names(raw_counts) <- formatted_rownames
 names(raw_counts) <- make.names(names(raw_counts), allow_ = FALSE)
 genes <- raw_counts[,"geneSym",drop=FALSE]
 raw_counts <- raw_counts[,-1]
@@ -165,8 +179,8 @@ pam50_predictions_all <- molecular.subtyping(sbt.model = 'pam50', data = t(norma
 #crisp <- as.data.frame(pam50_predictions_all$subtype.crisp)
 #pam50_predictions_all$subtype.proba
 
-write.table(file=paste0(runID,"_PAM50-crisp.tsv"), x=pam50_predictions_all$subtype.crisp, quote=FALSE, sep="\t")
-write.table(file=paste0(runID,"_PAM50-prob.tsv"), x=pam50_predictions_all$subtype.proba, quote=FALSE, sep="\t")
+write.table(file=paste0(outDir,runID,"_PAM50-crisp.tsv"), x=pam50_predictions_all$subtype.crisp, quote=FALSE, sep="\t")
+write.table(file=paste0(outDir,runID,"_PAM50-prob.tsv"), x=pam50_predictions_all$subtype.proba, quote=FALSE, sep="\t")
 
 all(row.names(samples)==names(pam50_predictions_all$subtype))
 
@@ -226,7 +240,7 @@ samples$Sample.ID <- row.names(samples)
 write.table(cl_class$distances, paste0(outDir,runID,"_pseudoClaudinLow_Distances.tsv"), sep="\t", quote = FALSE, row.names = TRUE)
 
 
-write.table(file=paste0(runID,"_SubtypedSamples.tsv"), x=samples, quote=FALSE, sep="\t", row.names = FALSE)
+write.table(file=paste0(outDir,runID,"_SubtypedSamples.tsv"), x=samples, quote=FALSE, sep="\t", row.names = FALSE)
 
 print("COMPLETED!")
 
