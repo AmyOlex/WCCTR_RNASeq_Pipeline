@@ -96,7 +96,9 @@ do
 	elif [[ "$ref" == "grch38" ]]
 	then
 		##reference="/vcu_gpfs2/home/harrell_lab/src/cellranger-6.0.1/refdata/refdata-gex-GRCh38-2020-A"
-		reference="/lustre/home/mccbnfolab/ref_genomes/CellRanger/refdata-gex-GRCh38-2024-A"
+		##reference="/lustre/home/mccbnfolab/ref_genomes/CellRanger/refdata-gex-GRCh38-2024-A"
+		reference="/lustre/home/harrell_lab/refGenomes/CellRanger/refdata-gex-GRCh38-2024-A"
+		
 	##elif [[ "$ref" == "hg19" ]]
         ##then
         ##        reference="/data/refGenomes/CellRanger/refdata-cellranger-hg19-3.0.0"
