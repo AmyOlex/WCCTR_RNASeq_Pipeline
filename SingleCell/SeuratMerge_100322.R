@@ -23,7 +23,7 @@
 ## Path to cells to keep file
 ## Path to unfiltered h5Seurat file OR path to 10X filtered_features_bc_matrix folder (or equivalent)
 ## Flag to delineate input types.
-## 
+##
 ## sample file format:
 ## SampleName, DataType (Seurat|10X), SamplePath, Cells2KeepPath, Condition
 
@@ -31,7 +31,7 @@
 ## BUG Fixes 9/2/21 to output the conditions correctly
 ## UPDATED 9/2/21 to run PCA, UMAP, tSNE, and Clustering using a subset of features
 ## UPDATED 10/14/21 to fix the feature subset issue and add in CellCycle Annotations.
-## UPDATED 10/03/22 updated to include filtering out dead cells from a provided list 
+## UPDATED 10/03/22 updated to include filtering out dead cells from a provided list
 ##         as well as not requiring the exact bc matrix directory name.
 ## UPDATED 12/12/2022 to also save an RDS file to save the Seurat object.
 ## UPDATED 3/25/2023 to allow the exclusion of specific cells BEFORE running any dead cell analyses.
@@ -40,7 +40,7 @@
 ## UPDATED 1/23/2024 to utilize the new LoupeR package to directly generate a Loupe file.
 ## UPDATED 5/29/2024 to fix the annotation issue with the LoupeR package conversion.
 ## UPDATED 10/14/2024 to add back in the regression of UMI, update accessor calls to use the new layers format of Seurat v5, and reduced the number of PCA dims to 25 by default.
-
+## UPDATED 03/17/2025 Updated the Ambient RNA correction section with SoupX to use the new Assay5 Seurat structure that utilizes layers instead of slots.
 
 library(Seurat)
 #library(SeuratDisk)
@@ -62,9 +62,9 @@ library("hdf5r")
 mouse_human_genes = read.csv("http://www.informatics.jax.org/downloads/reports/HOM_MouseHumanSequence.rpt",sep="\t")
 convert_human_to_mouse <- function(gene_list){
   ## This function was copied from https://support.bioconductor.org/p/129636/
-  
+
   output = c()
-  
+
   for(gene in gene_list){
     class_key = (mouse_human_genes %>% filter(Symbol == gene & Common.Organism.Name=="human"))[['DB.Class.Key']]
     if(!identical(class_key, integer(0)) ){
@@ -74,7 +74,7 @@ convert_human_to_mouse <- function(gene_list){
       }
     }
   }
-  
+
   return (output)
 }
 
@@ -103,10 +103,10 @@ localtest = FALSE
 ###########################################
 #### Local Testing Block
 if(localtest){
-  setwd("/lustre/home/mccbnfolab/Harada-Deb_P01/Harada_Project1_scRNAseq/config/06_Merge")
-  runID <- "SimpleMerge_NextSeq240828_Log2Norm_GRCh38_241012"
-  inFile <- "/lustre/home/mccbnfolab/Harada-Deb_P01/Harada_Project1_scRNAseq/config/06_Merge/241012_SeuratSimpleMerge_NextSeq240828_GRCh38.csv"
-  outDir <- "/lustre/home/mccbnfolab/Harada-Deb_P01/Harada_Project1_scRNAseq/06_SimpleMerge/"
+  setwd("/lustre/home/harrell_lab/scRNASeq/config_slurm/06_SimpleMerge/")
+  runID <- "AmbientTEST"
+  inFile <- "/lustre/home/harrell_lab/scRNASeq/config_slurm/06_SimpleMerge/06_SeuratSimpleMerge_MultiTumorManuscript_GRCh38_250317.csv"
+  outDir <- "/lustre/home/harrell_lab/scRNASeq/config_slurm/06_SimpleMerge/"
   features <- ""
   savedir <- paste0(outDir,runID)
   numCores <- 2
@@ -122,7 +122,8 @@ if(localtest){
   filtercells <- TRUE
   exportCounts <- TRUE
   keep <- ""
-  ambientRNAadjust <- FALSE
+  ambientRNAadjust <- TRUE
+  regressUMI <- FALSE
   options(future.globals.maxSize = 8000 * 1024^2)
 }
 ###########################################
@@ -136,59 +137,59 @@ start_time <- Sys.time()
 
 
 option_list = list(
-  make_option(c("-r", "--runid"), type="character", default=NULL, 
+  make_option(c("-r", "--runid"), type="character", default=NULL,
               help="Required. A unique name for this analysis.", metavar="character"),
-  make_option(c("-c", "--configfile"), type="character", 
+  make_option(c("-c", "--configfile"), type="character",
               help="Required. Input config file with sample information.", metavar="character"),
-  make_option(c("-o", "--outdir"), type="character", 
+  make_option(c("-o", "--outdir"), type="character",
               help="output directory for results report (must already exist). Default is current directory.",
               default = "./", metavar="character"),
-  make_option(c("-i", "--normalization"), type="character", 
+  make_option(c("-i", "--normalization"), type="character",
               help="Type of normalization to run prior to merging/integrating (SCT or LogNormalize). Default is SCT.",
               default = "SCT", metavar="character"),
-  make_option(c("-t", "--type"), type="character", 
+  make_option(c("-t", "--type"), type="character",
               help="Type of merging to do (simple or integration). Default is simple.",
               default = "simple", metavar="character"),
-  make_option(c("-f", "--features"), type="character", 
-              help="Optional. A list of features to use for the PCA, UMAP, tSNE, and Clustering.", 
+  make_option(c("-f", "--features"), type="character",
+              help="Optional. A list of features to use for the PCA, UMAP, tSNE, and Clustering.",
               default = "", metavar="character"),
-  make_option(c("-s", "--downsample"), type="numeric", 
-              help="Optional. The percentage of cells to KEEP from each sample entered as an integer (eg. 20 for 20%). Default is 100.", 
+  make_option(c("-s", "--downsample"), type="numeric",
+              help="Optional. The percentage of cells to KEEP from each sample entered as an integer (eg. 20 for 20%). Default is 100.",
               default = 100, metavar="character"),
-  make_option(c("-e", "--exclude"), type="character", 
-              help="Optional. A TSV file with a list of barcodes that should be removed FIRST before downsampling is performed (no header).  This was added as a specialty feature for merging very large datasets in batches. It needs to already be formatted with the numbered extensions for each sample.", 
+  make_option(c("-e", "--exclude"), type="character",
+              help="Optional. A TSV file with a list of barcodes that should be removed FIRST before downsampling is performed (no header).  This was added as a specialty feature for merging very large datasets in batches. It needs to already be formatted with the numbered extensions for each sample.",
               default = "", metavar="character"),
-  make_option(c("-k", "--keep"), type="character", 
-              help="Optional. A TSV file with a list of barcodes that should be KEPT after merging (no header).  This was added as a specialty feature for merging very large datasets in batches. It needs to already be formatted with the numbered extensions for each sample.", 
+  make_option(c("-k", "--keep"), type="character",
+              help="Optional. A TSV file with a list of barcodes that should be KEPT after merging (no header).  This was added as a specialty feature for merging very large datasets in batches. It needs to already be formatted with the numbered extensions for each sample.",
               default = "", metavar="character"),
-  make_option(c("--parallel"), type="logical", 
+  make_option(c("--parallel"), type="logical",
               help="Optional. Use paralellization for Merging and Integration (note, normalization of individual samples is always parallelized).",
               default = FALSE, action = "store_true", metavar="logical"),
-  make_option(c("--filter"), type="logical", 
+  make_option(c("--filter"), type="logical",
               help="Optional. Filter to only selected cells for each file before merging. Default is False. If True, config file must include path to and name of file listing the barcodes of the cells to KEEP in the merged data set in a column named 'Cells2Keep'.",
               default = FALSE, action = "store_true", metavar="logical"),
-  make_option(c("-n", "--numCores"), type="numeric", 
+  make_option(c("-n", "--numCores"), type="numeric",
               help="Optional. Specify number of cores to use. Default is 1.",
               default = 1, metavar="character"),
-  make_option(c("-a", "--numAnchors"), type="numeric", 
+  make_option(c("-a", "--numAnchors"), type="numeric",
               help="Optional. Specify number of anchor genes to use. Default is 2000.",
               default = 2000, metavar="character"),
-  make_option(c("-p", "--species"), type="character", 
+  make_option(c("-p", "--species"), type="character",
               help="species to use for cell cycle scroing. Options are human or mouse (default = human).",
               default = "human", metavar="character"),
-  make_option(c("--saveH5"), type="logical", 
+  make_option(c("--saveH5"), type="logical",
               help="Optional. Save merged and annotated Seruat object as a .h5Seruat file. Default saves as a .RData file.",
               default = FALSE, action = "store_true", metavar="logical"),
-  make_option(c("--regressCellCycle"), type="logical", 
+  make_option(c("--regressCellCycle"), type="logical",
               help="Optional. Regress out the cell cycle difference between S and G2M scores during normalization (Default = FALSE).",
               default = FALSE, action = "store_true", metavar="logical"),
-  make_option(c("--regressUMI"), type="logical", 
+  make_option(c("--regressUMI"), type="logical",
               help="Optional. Regress out the UMI counts during normalization (Default = FALSE).",
               default = FALSE, action = "store_true", metavar="logical"),
-  make_option(c("--ambientRNAadjust"), type="logical", 
+  make_option(c("--ambientRNAadjust"), type="logical",
               help="Optional. Uses SoupX to adjust for ambient RNA contamination. MUST have a column in input CSV named 'raw10Xdata' that lists the full path to the raw_feature_bc_matrix file in 10X format. (Default = FALSE).",
               default = FALSE, action = "store_true", metavar="logical")
-); 
+);
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
@@ -280,7 +281,7 @@ barcodes_to_remove = ""
 if(exclude != ""){
   tmp <- read.delim(exclude, header=FALSE)
   barcodes_to_remove <- as.data.frame(t(as.data.frame(strsplit(tmp$V1,split = "-"))))
-  
+
   #sub <- df[df$V2 == 21, "V1"]
 }
 
@@ -301,15 +302,15 @@ sc_start <- Sys.time()
 
 seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   print(paste("Importing data for row", i, "from sample", toProcess[i,"SampleName"]))
-  
+
   if(toProcess[i,"DataType"] == "Seurat"){
     print(paste0(toProcess[i,"SampleName"], ": Loading Seurat h5 File..."))
     library(SeuratDisk)
-    if(file.exists(trimws(toProcess[i,"SamplePath"]))){ 
-      h5 <- LoadH5Seurat(trimws(toProcess[i,"SamplePath"])) 
+    if(file.exists(trimws(toProcess[i,"SamplePath"]))){
+      h5 <- LoadH5Seurat(trimws(toProcess[i,"SamplePath"]))
     }
-    else{ 
-      print(paste("ERROR, file not found: ",toProcess[i,"SampleName"]) ) 
+    else{
+      print(paste("ERROR, file not found: ",toProcess[i,"SampleName"]) )
     }
   }
   else if(toProcess[i,"DataType"] == "10X"){
@@ -318,46 +319,47 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
     sc.data <- Read10X(data.dir = toProcess[i,"SamplePath"])  ## must point to the filtered_feature_bc_matrix directory.
     # Initialize the Seurat object
     h5 <- CreateSeuratObject(counts = sc.data, project = toProcess[i,"SampleName"], min.cells = 0, min.features = 0)
-    
+
   }
   else{
     print("Error unknown data type.")
     quit(1)
   }
-  
+
   # Run ambient RNA adjustment FIRST, before excluding or doing any further processing
   ###I need to finish this up to point to the correct column of the toProcess object.
   if(ambientRNAadjust){
     print("Ambient RNA Adjusment...")
-    
+
     ## add Soup Groups to filtered feature data
     h5 <- add_soup_groups(h5)
-    
+
     ##load in unfiltered raw data (must be in 10X format)
     raw_10x <- Read10X(data.dir = toProcess[i,"raw10Xdata"])
     rownames(raw_10x) <- gsub("_", "-", rownames(raw_10x))
-    
-    sc1 <- SoupChannel(raw_10x, h5@assays$RNA@counts)
+
+    sc1 <- SoupChannel(raw_10x, GetAssayData(h5, assay = "RNA", layer = "counts"))
     sc1 <- setClusters(sc1, h5$soup_group)
-    
+
     png(file = paste0(savedir, toProcess[i,"SampleName"], "_SoupXestimates.png"), width = 1000, height = 500, res = 100)
       sc1 <- autoEstCont(sc1, doPlot=TRUE)
     dev.off()
-    
+
     out1 <- adjustCounts(sc1, roundToInt = TRUE)
-    h5[['originalcounts']] <- CreateAssayObject(counts = h5@assays$RNA@counts)
-    h5@assays$RNA@counts <- out1
+    h5[['originalcounts']] <- CreateAssayObject(counts = GetAssayData(h5, assay = "RNA", layer = "counts"))
+    h5 <- SetAssayData(h5, assay = "RNA", layer = "counts", new.data = out1)
+
     #recalculate nCounts, nFeature, and create the UMAP plot
-    h5$nCount_RNA = colSums(x = h5, slot = "counts")
-    h5$nFeature_RNA = colSums(x = GetAssayData(object = h5, slot = "counts") > 0)
-    
-    print(paste0("Original Total Read Count: ", sum(h5@assays$originalcounts@counts)))
-    print(paste0("Adjusted Total Read Count: ", sum(h5@assays$RNA@counts)))
+    h5$nCount_RNA = colSums(GetAssayData(h5, assay = "RNA", layer = "counts"))
+    h5$nFeature_RNA = colSums(GetAssayData(h5, assay = "RNA", layer = "counts") > 0)
+
+    print(paste0("Original Total Read Count: ", sum(GetAssayData(h5, assay = "originalcounts", layer = "counts"))))
+    print(paste0("Adjusted Total Read Count: ", sum(GetAssayData(h5, assay = "RNA", layer = "counts"))))
     #reads_before_ambiant <- sum(h5@assays$originalcounts@counts)
     #reads_after_ambiant <- sum(h5@assays$RNA@counts)
-    
+
   }
-  
+
   if(filtercells){
     print(paste0(toProcess[i,"SampleName"], ": Loading list of cell barcodes to keep..."))
     file_name <- trimws(toProcess[i,"Cells2Keep"])
@@ -367,21 +369,21 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
     else {
       print(paste("ERROR, file not found: ", toProcess[i,"Cells2Keep"]))
     }
-    
+
     print(paste0(toProcess[i,"SampleName"], ": Keeping ", length(cells2keep$barcode), " cells."))
     print(paste0(toProcess[i,"SampleName"], ": Downsampling to ", downsample, " percent."))
-    
+
     if(downsample < 100){
       print(paste0(toProcess[i,"SampleName"], ": Downsampling kept cells to ", downsample, "%..."))
     }
-    
+
     if(barcodes_to_remove != ""){
       to_remove_this_sample <- paste0(barcodes_to_remove[barcodes_to_remove$V2 == i, "V1"],"-1")
       print(paste0(toProcess[i,"SampleName"], ": Removing ",length(to_remove_this_sample)," cells to exclude from cells2keep."))
       cells2keep <- cells2keep[!(cells2keep$barcode %in% to_remove_this_sample),,drop=FALSE]
       print(paste0(toProcess[i,"SampleName"], ": After EXCLUSION keeping ", length(cells2keep$barcode), " cells."))
     }
-    
+
     if(barcodes_to_keep != ""){
       to_keep_this_sample <- paste0(barcodes_to_keep[barcodes_to_keep$V2 == i, "V1"],"-1")
       print(paste0(toProcess[i,"SampleName"], ": Keeping ",length(to_keep_this_sample)," cells from cells2keep."))
@@ -389,47 +391,47 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
       print(paste0(toProcess[i,"SampleName"], ": After FILTERING keeping ", length(cells2keep$barcode), " cells."))
       #print(head(cells2keep))
     }
-    
+
     if(length(cells2keep$barcode) > 0){
       samplesize <- floor((downsample/100)*length(cells2keep$barcode))
       set.seed(i)
       sampledcells <- sample(x = cells2keep$barcode, size = samplesize, replace = F)
-    
+
       print(paste0(toProcess[i,"SampleName"], ": After DOWNSAMPLING keeping ", length(sampledcells), " cells."))
-    
+
     #print(paste0("Filtering cells2keep using file: ", toProcess[i,"Cells2Keep"]))
       #print(head(sampledcells))
       h5 <- subset(h5, cells = sampledcells)
     }
     else{
       print(paste0(toProcess[i,"SampleName"], ": Skipping iteration.."))
-      next 
+      next
     }
   }
-  
+
   #if(exclude == "" and !filtercells){
   #  to_remove_this_sample <- barcodes_to_remove[barcodes_to_remove$V2 == i, "V1"]
   #  print(paste("Excluding cells : ", str(length(to_remove_this_sample)) ))
-  #  
+  #
   #  if(downsample < 100){
   #    print("Downsampling...")
   #  }
-  #  
+  #
   #  samplesize <- floor((downsample/100)*length(cells2keep$barcode))
   #  sampledcells <- sample(x = cells2keep$barcode, size = samplesize, replace = F)
-  #  
+  #
   #  h5 <- subset(h5, cells = sampledcells)
   #}
-  
+
   print(paste0(toProcess[i,"SampleName"], ": Renaming Cells..."))
   ## Rename the barcodes in each file with a count greater than 1
   if(i > 1){
     h5 <- RenameCells(h5,  new.names = str_replace(names(h5$orig.ident), "-1", paste0("-",i)))
     #print(head(names(h5$orig.ident)))
   }
-  
+
   mid_time <- Sys.time()
-  
+
   if(normalization == "SCT"){
     print(paste0(toProcess[i,"SampleName"], ": SCTransform..."))
     ## Normalize each dataset with SCT
@@ -443,15 +445,15 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
     #print(paste0(toProcess[i,"SampleName"], ": scaleData"))
     h5 <- ScaleData(h5, verbose = FALSE)
     print(h5)
-    
+
   }
-  
-  
+
+
   ## Add seurat obj to list now
-  #seurat_list <- c(seurat_list,h5)  
-  
+  #seurat_list <- c(seurat_list,h5)
+
   print(Sys.time() - mid_time)
-  
+
   print(h5)
 }  ## end processing of each sample.
 
@@ -485,7 +487,7 @@ if(mergeType == "integration"){
   if(normalization == "SCT"){
     mid_time <- Sys.time()
     hfile_features <- SelectIntegrationFeatures(object.list = seurat_list, nfeatures = numAnchors)
-    
+
     seurat_list <- PrepSCTIntegration(object.list = seurat_list, anchor.features = hfile_features, verbose = FALSE)
     print(Sys.time() - mid_time)
   } else{
@@ -496,7 +498,7 @@ if(mergeType == "integration"){
   print("Finding Anchors...")
   #seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = normalization, anchor.features = hfile_features, reference = 5, verbose = FALSE)
   seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = normalization, anchor.features = hfile_features, verbose = FALSE)
-  
+
 
   if(regressCC){
     ## Ensure cell cycle genes are included in the list
@@ -505,23 +507,23 @@ if(mergeType == "integration"){
   else{
     genes.to.integrate <- seurat.anchors@anchor.features
   }
-  
+
   ## Save Anchor Feature File
   write.csv(genes.to.integrate, file=paste0(savedir, "_Seurat", normalization, "Merge_AnchorList.csv"), quote = FALSE, row.names = FALSE)
-  
-  
-  
+
+
+
   print(Sys.time() - mid_time)
-  
+
   mid_time <- Sys.time()
   print("Performing integration...")
   #seurat.merged <- IntegrateData(anchorset = seurat.anchors, features.to.integrate = genes.to.integrate, normalization.method = normalization, verbose = FALSE)
   seurat.merged <- IntegrateEmbeddings(anchorset = seurat.anchors, verbose = TRUE, reduction = "pcaproject")
   print(Sys.time() - mid_time)
-  
+
 } else if(mergeType == "simple"){
   print("Running simple merge...")
-  
+
   seurat.merged <- merge(seurat_list[[1]], y = seurat_list[2:length(seurat_list)], merge.data=TRUE, project=runID)
   seurat.merged <- FindVariableFeatures(seurat.merged, selection.method = "vst", nfeatures = numAnchors, verbose = FALSE)
 }
@@ -550,9 +552,9 @@ if(regressCC | regressUMI){
   to_regress <- c()
   if(regressUMI){c(to_regress,"nCount_RNA")}
   if(regressCC){c(to_regress,"CC.Difference")}
-  
+
   print("Regressing out UMI and/or CC...")
-  
+
   seurat.merged <- ScaleData(seurat.merged, vars.to.regress = to_regress, features = rownames(seurat.merged))
 }
 
@@ -616,14 +618,14 @@ for(n in 1:(dim(toProcess)[2]-1)){
     anno <- idents
     names(anno) <- c("barcode", names(toProcess)[n])
     anno[,2] <- as.character(anno[,2])
-    
+
     for(i in 1:dim(toProcess)[1]){
       anno[anno[,2] == toProcess[i,1], 2] <- toProcess[i,n]
     }
-    
+
     seurat.merged@meta.data[names(toProcess)[n]] <- anno[,2,drop=FALSE]
-    
-    
+
+
     ## Save Sample Annotations
     write.csv(anno, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_", names(toProcess)[n], ".csv"), quote = FALSE, row.names = FALSE)
   }
@@ -649,11 +651,11 @@ if(mergeType == "integration"){
 ## Use features for PCA if provided.
 if(features != ""){
   print("Subsetting PCA, UMAP, tSNE, and clustering on input features.")
-  
+
   ## debugging issues with using a small gene list.
   #rna_assay <- seurat.merged@assays$RNA
   #rna_assay <- rna_assay[row.names(rna_assay) %in% my_feats,]
-  
+
   #which(colSums(rna_assay) == 0)
   #rna_assay <- rna_assay[,-12]
   #rna_assay <- rna_assay[,-44]
