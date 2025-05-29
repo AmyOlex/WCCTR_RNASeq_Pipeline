@@ -104,12 +104,12 @@ localtest = FALSE
 #### Local Testing Block
 if(localtest){
   setwd("/lustre/home/harrell_lab/scRNASeq/config_slurm/06_SimpleMerge/")
-  runID <- "AmbientTEST"
-  inFile <- "/lustre/home/harrell_lab/scRNASeq/config_slurm/06_SimpleMerge/06_SeuratSimpleMerge_MultiTumorManuscript_GRCh38_250317.csv"
+  runID <- "RegressionTEST"
+  inFile <- "/lustre/home/harrell_lab/scRNASeq/config_slurm/06_SimpleMerge/06_SeuratSimpleMerge_LungOnly_GRCh38_250519.csv"
   outDir <- "/lustre/home/harrell_lab/scRNASeq/config_slurm/06_SimpleMerge/"
   features <- ""
   savedir <- paste0(outDir,runID)
-  numCores <- 2
+  numCores <- 1
   numAnchors <- 2000
   normalization <- "LogNormalize"
   mergeType <- "simple"
@@ -122,7 +122,7 @@ if(localtest){
   filtercells <- TRUE
   exportCounts <- TRUE
   keep <- ""
-  ambientRNAadjust <- TRUE
+  ambientRNAadjust <- FALSE
   regressUMI <- FALSE
   options(future.globals.maxSize = 8000 * 1024^2)
 }
@@ -131,7 +131,7 @@ if(localtest){
 #numCores <- detectCores()
 #registerDoParallel(numCores)
 
-options(future.globals.maxSize = 100000 * 1024^2)
+options(future.globals.maxSize = 1000000 * 1024^2)
 
 start_time <- Sys.time()
 
@@ -327,9 +327,8 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   }
 
   # Run ambient RNA adjustment FIRST, before excluding or doing any further processing
-  ###I need to finish this up to point to the correct column of the toProcess object.
-  if(ambientRNAadjust){
-    print("Ambient RNA Adjusment...")
+  if(ambientRNAadjust & toProcess[i,"RunSoupX"] == 1){
+    print(paste0("Ambient RNA Adjusment for sample: ", toProcess[i,"SampleName"]))
 
     ## add Soup Groups to filtered feature data
     h5 <- add_soup_groups(h5)
@@ -550,10 +549,10 @@ write.csv(cc, paste0(savedir, "_CellCyclePhase_",mergeType,"MergedData.csv"), qu
 
 if(regressCC | regressUMI){
   to_regress <- c()
-  if(regressUMI){c(to_regress,"nCount_RNA")}
-  if(regressCC){c(to_regress,"CC.Difference")}
+  if(regressUMI){to_regress <- c(to_regress,"nCount_RNA")}
+  if(regressCC){to_regress <- c(to_regress,"CC.Difference")}
 
-  print("Regressing out UMI and/or CC...")
+  print(paste("Regressing out:", paste(to_regress, collapse = ", ")))
 
   seurat.merged <- ScaleData(seurat.merged, vars.to.regress = to_regress, features = rownames(seurat.merged))
 }
