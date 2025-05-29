@@ -1,0 +1,121 @@
+---
+title: "SoupX Contamination Report"
+output: html_document
+params:
+  results_df: NULL
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(DT)
+```
+
+## Contamination Report Table
+
+The following contains the contamination rpeort for all samples in the batch.  Highly contaminated samples are highlighted in RED and were flagged if the estimated Rho was greater than twice the Rho Prior (0.05, or 5%).  The Estimated Rho is the estimated percent of gene that are potentially contaminated with ambient RNA.  Higher values mean more contamination.
+
+This data can be used to set sample-specific theresholds for identifying how many genes should be decontaminated.  If the dataset has overall low contamination no adjustment may be necessary.  It the dataset has high contamination then consider using a 0.10 threshold so that any gene with more than 10% contamination is corrected.
+
+#### Flags
+
+ - **OK:** sample does not have excessive contamination, may be ok to skip adjustment or use default threshold.
+ - **Flagged:** sample has excessive contamination, may need to adjust threshold or perform additional QC.
+ - **Skipping:** sample is too homogeneous to identify marker genes in ambient RNA, may need to skip adjustment or perform manual analysis with custom cutoffs.
+
+#### Gene Counts
+
+ - **NumGenes_ZeroedOut:** The number of genes whose expression was reduced to zero in at least 1 cell after ambient RNA adjustment using default criteria (aka postRho value).  Note: just because it is reduced to zero in some cells does not mean it was reduced to zero in all cells.  This is NOT a list of genes that dissappear after ambient RNA correction.
+ - **NumGenes_HighSoupFrac:** The number of genes that had > 75% contamination in at least 5% cells (cutoffs are arbitrary).  The average Soup Fraction is reported in the TopAffectedGenes.csv file, so may appear below 75% if there is a wide range or a lot of cells expressing a given gene.
+ - **HighSoupFrac_CellNumThreshold:** The number of cells used for the NumGenes_HighSoupFrac cell cutoff (i.e. 5% of total number of cells in sample).
+
+```{r}
+
+# Create an interactive table using DT
+datatable(params$results_df, caption = "Contamination Results for All Samples", options = list(pageLength = 10, autoWidth = TRUE)) %>%
+  formatStyle(
+    'Flag',
+    target = 'row',
+    backgroundColor = styleEqual('Flagged', 'lightcoral')
+  )
+```
+
+## Contamination Plots (in same order as table)
+
+See the bottom of the report for a description of how to interpret the contamination plots.
+
+```{r}
+knitr::include_graphics(params$results_df$plot_file)
+```
+
+
+### Key Components of the Contamination Plot:
+1. **X-Axis (Contamination Fraction)**:
+   - Represents the fraction of contamination for each gene.
+   - Values typically range from 0 to 1, where 0 indicates no contamination and 1 indicates complete contamination.
+
+2. **Y-Axis (Probability Density)**:
+   - Represents the probability density of the contamination fractions.
+   - Higher density values indicate that a particular contamination fraction is more common in the dataset.
+
+### Interpreting the Plot:
+- **Peak Density**:
+  - The peak(s) in the plot indicate the most common contamination fractions in your dataset.
+  - A sharp peak suggests a well-defined contamination fraction, while a broad peak indicates more variability.
+
+- **Low Contamination Region**:
+  - The left side of the plot (near 0) represents genes with low contamination.
+  - If the density is high in this region, it suggests that many genes have minimal contamination.
+
+- **High Contamination Region**:
+  - The right side of the plot (near 1) represents genes with high contamination.
+  - If the density is high in this region, it suggests significant ambient RNA contamination.
+
+### Practical Use:
+- **Identifying Thresholds**:
+  - Use the plot to identify a threshold for contamination fraction. Genes above this threshold can be considered contaminated and adjusted accordingly.
+  
+- **Quality Control**:
+  - Assess the overall quality of your dataset. A plot with a high density near 0 indicates good quality with minimal contamination.
+
+### Example Interpretation:
+- **Single Peak Near 0**:
+  - Indicates that most genes have low contamination, suggesting good data quality.
+  
+- **Broad Peak Across the Range**:
+  - Indicates variability in contamination, suggesting the need for careful adjustment and validation.
+
+
+## Marker and Expression Changes UMAP Plots
+
+All per-gene QC plots can be found in the specific sample directory under the main results folder: `r params$results_df$SampleResultsDir`
+
+### ChangesPlot
+
+The ChangesPlot in SoupX shows the changes in gene expression before and after ambient RNA correction. Here's how to interpret it:
+
+ - **Pre- and Post-Correction:** The plot typically shows the expression levels of genes before and after correction. This helps to visualize the impact of the correction process.
+ - **Reduction in Expression:** A significant reduction in expression levels for certain genes indicates that these genes were likely affected by ambient RNA contamination and have been corrected.
+ - **Consistency:** Genes that maintain consistent expression levels before and after correction are less likely to be affected by ambient RNA contamination.
+ 
+#### Example Plot
+
+
+```{r}
+knitr::include_graphics("/lustre/home/harrell_lab/scRNASeq/config_slurm/EXAMPLE_plotChangeMap.png")
+```
+
+### MarkerPlot
+
+The MarkerPlot in SoupX is used to visualize the expression of specific marker genes across cells. Here's how to interpret it:
+
+ - **Color Intensity:** The color intensity represents the expression level of the marker gene in each cell. Darker colors indicate higher expression levels.
+ - **Green Outlines:** Cells outlined in green have a statistically significant difference in expression compared to the background. This indicates that the gene is likely truly expressed in these cells rather than being a result of ambient RNA contamination1.
+ - **Red Cells:** Cells that are even slightly red likely represent true expression of the gene. The test used to outline cells in green is very strict, so only cells with very high expression are marked1.
+ 
+#### Example Plot
+
+```{r}
+knitr::include_graphics("/lustre/home/harrell_lab/scRNASeq/config_slurm/EXAMPLE_plotMarkerMap.png")
+```
+
+These plots are valuable tools for assessing the effectiveness of the ambient RNA correction process and understanding the true expression levels of genes in your single-cell RNA-seq data.
