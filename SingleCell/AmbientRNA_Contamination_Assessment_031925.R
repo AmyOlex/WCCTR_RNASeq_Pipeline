@@ -235,7 +235,7 @@ generate_report <- function(toProcess, savedir, numCores) {
             NumGenes_ZeroedOut = length(ZeroedOutGenes),
             NumGenes_HighSoupFrac = length(filtered_genes),
             HighSoupFrac_CellNumThreshold = cell_threshold,
-            plot_file = paste0(sample_dir, "_SoupXestimates.png"),
+            plot_file = paste0(savedir, sample_name, "_SoupXestimates.png"),
             SampleResultsDir = sample_dir
           )
     } else {
@@ -269,14 +269,18 @@ localtest = TRUE
 ###########################################
 #### Local Testing Block
 if(localtest){
-  setwd("/lustre/home/harrell_lab/scRNASeq/config_slurm/06_SimpleMerge/")
+  setwd("/lustre/home/harrell_lab/scRNASeq/config_slurm/AmbientRNAQC/")
   #runID <- "MultiTumorManuscript_GRCh38_250317"
   #inFile <- "/lustre/home/harrell_lab/scRNASeq/config_slurm/06_SimpleMerge/06_SeuratSimpleMerge_MultiTumorManuscript_GRCh38_250317.csv"
   #outDir <- "/lustre/home/harrell_lab/scRNASeq/config_slurm/06_SimpleMerge/"
   
-  runID <- "BC003_250314"
-  inFile <- "/lustre/home/harrell_lab/scRNASeq/config_slurm/06_SimpleMerge/06_SeuratSimpleMerge_BC003_250314.csv"
-  outDir <- "/lustre/home/harrell_lab/scRNASeq/config_slurm/06_SimpleMerge/"
+  #runID <- "BC003_250314"
+  #inFile <- "/lustre/home/harrell_lab/scRNASeq/config_slurm/06_SimpleMerge/06_SeuratSimpleMerge_BC003_250314.csv"
+  #outDir <- "/lustre/home/harrell_lab/scRNASeq/config_slurm/06_SimpleMerge/"
+  
+  runID <- "OldSampleTest"
+  inFile <- "/lustre/home/harrell_lab/scRNASeq/config_slurm/AmbientRNAQC/OlderSampleAmbientRNAAssessment_250609.csv"
+  outDir <- "/lustre/home/harrell_lab/scRNASeq/config_slurm/AmbientRNAQC/"
   
   features <- ""
   savedir <- paste0(outDir,runID,"_AmbientRNA_Analysis_Results/")
@@ -308,7 +312,7 @@ dir.create(savedir, showWarnings = FALSE)
 toProcess = read.table(inFile, header=TRUE, sep=",", stringsAsFactors = FALSE)
 
 ## Subset to only saamples that had human only pipeline for testing
-if(localtest){ toProcess <- toProcess[20:23,] }
+#if(localtest){ toProcess <- toProcess[20:23,] }
 
 
 print(paste(names(toProcess)))

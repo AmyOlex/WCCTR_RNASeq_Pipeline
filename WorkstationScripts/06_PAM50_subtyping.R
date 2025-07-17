@@ -65,7 +65,7 @@ if(localtest){
   runID <- "TEST"
   countFile2 <- "/lustre/home/harrell_lab/bulkRNASeq/05_featureCountMatrix/BulkRNASeq_AllGenes_06.20.24_Human_counts.tsv"
   #sampleFile <- "/lustre/home/harrell_lab/bulkRNASeq/config/PAM50_SampleSheet_062024.csv"
-  countFile <- "/lustre/home/harrell_lab/bulkRNASeq/05_featureCountMatrix/25.01.31_VCU-BC_PAM50_RSEM_counts.tsv"
+  countFile <- "/lustre/home/harrell_lab/bulkRNASeq/config_slurm/06_PAM50/25.07.15_HUMAN_MixedBCSamples.tsv"
 
 
   outDir <- "./"
@@ -83,8 +83,8 @@ option_list = list(
   make_option(c("-c", "--countfile"), type="character",
               help="Path and file name of the input raw count data. The first column should be named geneSym and contain the gene symbols for each row.", metavar="character"),
 
-  make_option(c("-s", "--samplefile"), type="character",
-              help="Path and file name of the input sample data. Generally retrieved from the master sample sheet. Should at least have the following columns: Sample.ID, Tissue, Treatment, Percent.Human.", metavar="character"),
+#  make_option(c("-s", "--samplefile"), type="character",
+#              help="Path and file name of the input sample data. Generally retrieved from the master sample sheet. Should at least have the following columns: Sample.ID, Tissue, Treatment, Percent.Human.", metavar="character"),
 
   make_option(c("-o", "--outdir"), type="character",
               help="output directory for results report (must already exist). Default is current directory.",
@@ -105,22 +105,22 @@ if (is.null(opt$countfile)){
   stop("An input tsv file with raw count values must be provided.", call.=FALSE)
 }
 
-if (is.null(opt$samplefile)){
-  print_help(opt_parser)
-  stop("An input tsv file with sample metadata must be provided.", call.=FALSE)
-}
+#if (is.null(opt$samplefile)){
+#  print_help(opt_parser)
+#  stop("An input tsv file with sample metadata must be provided.", call.=FALSE)
+#}
 
 
 runID <- opt$runid
 outDir <- paste0(opt$outdir,"/")
 countFile <- opt$countfile
-sampleFile <- opt$samplefile
+#sampleFile <- opt$samplefile
 
 
 print("Summary of input options:\n")
 print(paste("Run Name: ", runID))
 print(paste("Count File: ", countFile))
-print(paste("Sample File: ", sampleFile))
+#print(paste("Sample File: ", sampleFile))
 print(paste("Output Directory:" , outDir))
 
 
