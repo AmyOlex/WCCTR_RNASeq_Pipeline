@@ -230,7 +230,7 @@ for(sg in sample_groups){
   
   ## Format gene expression input for inferCNV
   ## 1) create raw counts matrix
-  raw.mat=as.matrix(seurat.subset[[assay]]@counts)
+  raw.mat <- GetAssayData(object = seurat.subset, assay = assay, slot = "counts")
   
   ## 2) format annotation data
   annot=data.frame(cell.names=colnames(seurat.subset), group.st=seurat.subset@meta.data$cell.group)
