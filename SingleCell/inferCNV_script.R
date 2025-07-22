@@ -24,6 +24,9 @@ option_list = list(
   make_option(c("-k", "--subsetK"), type="integer", default=-1,
               help="Number of samples to include per group. Default is -1, which uses all samples.", metavar="integer"),
   
+  make_option(c("-t", "--threads"), type="integer", default=1,
+              help="Number of threads to utilize. Default is 1.", metavar="integer"),
+  
   make_option(c("-f", "--phenofile"), type="character", default=NULL,
               help="A CSV file with the sample annotations must be provided.", metavar="character"),
   
@@ -31,6 +34,7 @@ option_list = list(
               help="Location of the genes.gtf reference genome file.", metavar="character")
   
 ); 
+
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
@@ -59,15 +63,17 @@ seuratfile <- opt$seuratfile ## "100422_Visvader-MiniSubset_30_SimpleMerge_GRCh3
 phenofile <- opt$phenofile  ## "inferCNV_TEST_Visvader-MiniSubset_012023_metaData.csv"
 generef <- opt$generef
 subsetK <- opt$subsetK ## 3
+ncore <- opt$threads
 
 debug=FALSE
 if(debug){
-runID <-  "inferCNV_TEST_Visvader-MiniSubset_012023"
-wd <-  "/Users/alolex/Desktop/CCTR_Git_Repos/WCCTR_RNASeq_Pipeline/SingleCell/debug_files"
-seuratfile <-  "100422_Visvader-MiniSubset_30_SimpleMerge_GRCh38_Seurat_simpleMerge_LogNormalize_Annotated.RData"
-phenofile <-  "inferCNV_TEST_Visvader-MiniSubset_012023_metaData.csv"
-generef <- "genes.gtf"
-subsetK <- 3
+runID <-  "250722_CRv6_BrainMetMaster_withLUC_noAmb"
+wd <-  "/lustre/home/mccbnfolab/bos_lab/inferCNV_analysis/config/"
+seuratfile <-  "/lustre/home/mccbnfolab/bos_lab/inferCNV_analysis/04_SimpleMerges/250717_CRv6_EO771_BrainMetMaster_withLUC_noAmb_SimpleMerge_mm10firefly_Seurat_simpleMerge_LogNormalize_Annotated.RData"
+#seuratfile <- "/lustre/home/mccbnfolab/bos_lab/04_SimpleMerges/091923_BrainMetMaster_SimpleMerge_mm10firefly_noLuc_Seurat_simpleMerge_LogNormalize_Annotated.RData"
+phenofile <-  "InferCNV_SampleSheet_250717.csv"
+generef <- "/lustre/home/mccbnfolab/ref_genomes/mouse/mm10firefly/genes/genes.gtf.gz"
+subsetK <- -1
 }
 
 print("Summary of input options:\n")
@@ -188,6 +194,7 @@ malignant.cellTyper <- function(seurat,
 
 
 ## Load in data
+print("Loading Seurat file...")
 load(seuratfile)
 samples <- read.csv(phenofile)
 assay = "RNA"
@@ -195,7 +202,8 @@ print("data loaded...")
 print(paste("Using assay:", assay))
 
 ## create new annotation for each cell
-seurat.merged@meta.data$cell.group <- samples[match(seurat.merged@meta.data$orig.ident, samples[,"Sample_ID"]),"inferCNV.normal"]
+#seurat.merged@meta.data$cell.group <- samples[match(seurat.merged@meta.data$orig.ident, samples[,"Sample_ID"]),"inferCNV.normal"]
+seurat.merged$cell.group <- samples[match(seurat.merged$orig.ident, samples[,"Sample_ID"]),"inferCNV.normal"]
 
 ############## Need to automate: 
 ## Subset to chosen samples and SELECTED_Normal samples
@@ -230,10 +238,11 @@ for(sg in sample_groups){
   
   ## Format gene expression input for inferCNV
   ## 1) create raw counts matrix
-  raw.mat <- GetAssayData(object = seurat.subset, assay = assay, slot = "counts")
+  raw.mat <- GetAssayData(object = seurat.subset, assay = assay, layer = "counts")
   
   ## 2) format annotation data
-  annot=data.frame(cell.names=colnames(seurat.subset), group.st=seurat.subset@meta.data$cell.group)
+  #annot=data.frame(cell.names=colnames(seurat.subset), group.st=seurat.subset@meta.data$cell.group)
+  annot=data.frame(cell.names=colnames(seurat.subset), group.st=seurat.subset$cell.group) # Use $ access
   
   ## 3) get gene feature data (code from scTyper)
   ##making fdata object
@@ -250,10 +259,15 @@ for(sg in sample_groups){
   colnames(fdata)[1:4]=c("chr", "str", "end", "strand")
   rownames(fdata)=rownames(seurat.subset)
   
+  
+  ############################## STOPPED DEBUGGING HERE
+  
+  
+  
   ## adding gene annotations to Seurat obj
-  seurat.subset[[assay]]@meta.features <- data.frame(seurat.subset[[assay]]@meta.features, fdata)
-  names(seurat.subset[[assay]]@meta.features)
-  gene.od=data.frame(gene=rownames(seurat.subset[[assay]]@meta.features), seurat.subset[[assay]]@meta.features[,c("chr", "str", "end")])
+  seurat.subset[[assay]]@meta.data <- data.frame(seurat.subset[[assay]]@meta.data, fdata)
+  names(seurat.subset[[assay]]@meta.data)
+  gene.od=data.frame(gene=rownames(seurat.subset[[assay]]@meta.data), seurat.subset[[assay]]@meta.data[,c("chr", "str", "end")])
   fil.st=is.element(gene.od$chr, c(1:22, "X"))
   
   ## filtering to only primary chromosomes.
@@ -292,7 +306,7 @@ for(sg in sample_groups){
                                cluster_by_groups=T,   # cluster
                                denoise=T,
                                HMM=T,
-                               num_threads=30)
+                               num_threads=ncore)
   
   save(infercnv_obj, file=file.path(paste0(local_out_dir,"/"), 'infercnv_obj.o.rda'))
   
@@ -350,10 +364,15 @@ if(all(row.names(multiData) == names(seurat.merged$orig.ident))){
   seurat.merged$cnv.ZscoreCat=multiData$cnv.ZscoreCat
 
   ##write out the annotation data and files
-  write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvscore = seurat.merged@meta.data$cnv.score), file = paste0(runID, "_inferCNVscores.csv"), quote=FALSE, row.names=FALSE)
-  write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvZscore = seurat.merged@meta.data$cnv.Zscore), file = paste0(runID, "_inferCNVZscores.csv"), quote=FALSE, row.names=FALSE)
-  write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvZscoreCat = seurat.merged@meta.data$cnv.ZscoreCat), file = paste0(runID, "_inferCNVZscoreCat.csv"), quote=FALSE, row.names=FALSE)
-}else{
+  #write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvscore = seurat.merged@meta.data$cnv.score), file = paste0(runID, "_inferCNVscores.csv"), quote=FALSE, row.names=FALSE)
+  #write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvZscore = seurat.merged@meta.data$cnv.Zscore), file = paste0(runID, "_inferCNVZscores.csv"), quote=FALSE, row.names=FALSE)
+  #write.csv(data.frame(barcode = names(seurat.merged@active.ident), inferCNV.cnvZscoreCat = seurat.merged@meta.data$cnv.ZscoreCat), file = paste0(runID, "_inferCNVZscoreCat.csv"), quote=FALSE, row.names=FALSE)
+
+  write.csv(data.frame(barcode = Cells(seurat.merged), inferCNV.cnvscore = seurat.merged$cnv.score), file = paste0(runID, "_inferCNVscores.csv"), quote=FALSE, row.names=FALSE)
+  write.csv(data.frame(barcode = Cells(seurat.merged), inferCNV.cnvZscore = seurat.merged$cnv.Zscore), file = paste0(runID, "_inferCNVZscores.csv"), quote=FALSE, row.names=FALSE)
+  write.csv(data.frame(barcode = Cells(seurat.merged), inferCNV.cnvZscoreCat = seurat.merged$cnv.ZscoreCat), file = paste0(runID, "_inferCNVZscoreCat.csv"), quote=FALSE, row.names=FALSE)
+  
+  }else{
   print("ERROR: barcode order did not match!")
 }
 
