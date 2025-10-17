@@ -19,6 +19,9 @@
 #                   I actually had a sample where the cutoff was zero!  For these PDX samples we know that 25% is ok.
 # UPDATE 10/13/24:Getting errors about the Seurat object slot name.  Apollo uses Seurat v5, so updating. 
 #                 Also changing harcoded paths to Apollo pathnames. Also added the ability to enter in custom QC cutoffs using the config file.
+# UPDATE 10/16/25: Adding new filtering method to remove "slop" first before calculating the MAD, also going to have a hard lower bound cutoff.  
+#                   Hard lower cutoffs will be nFeature<200 and nCount<500, and these will be applied before MAD calculation for the upper bound.
+
 
 
 library("Seurat")
@@ -142,7 +145,7 @@ if(debug){
   exclude <- FALSE
   ambientRNAadjust <- FALSE
   mitoFile <- "/lustre/home/harrell_lab/scRNASeq/Harrell_SingleCellSequencing/referenceFiles/MitoCodingGenes13_human.txt"
-  useCustomCutoffs <- TRUE
+  useCustomCutoffs <- FALSE
 }
 
 #### Ok, print out all the current running options as a summary.
@@ -158,8 +161,6 @@ print(paste("Using custom Cutoffs: ", useCustomCutoffs))
 
 # Read in the provided config file and loop for each row.
 toProcess = read.table(inFile, header=FALSE, sep="\t")
-
-#toProcess = read.table("HCI1config.txt", header=TRUE, sep="\t", stringsAsFactors = FALSE)
 
 print(paste(dim(toProcess)[1], " rows were found."))
 
@@ -180,6 +181,9 @@ if(ambientRNAadjust){
 metadata_ncount <- list()
 metadata_mito <- list()
 metadata_nfeature <- list()
+metadata_ncount_cutoff_high <- list()
+metadata_nfeature_cutoff_high <- list()
+metadata_mito_cutoff <- list()
 
 for(i in 1:dim(toProcess)[1]){
   print(paste("Processing row", i, "from sample", toProcess[i,1]))
@@ -274,33 +278,49 @@ for(i in 1:dim(toProcess)[1]){
   	mad3mt <- 25
     }
     
-    if(mad3mt < 5){
-      print(paste("WARNING! Cutoff calculated to be < 5%: ", mad3mt, "\nSetting cutoff to 25%."))
-      mad3mt <- 25
+    if(mad3mt < 10){
+      print(paste("WARNING! Cutoff calculated to be < 10%: ", mad3mt, "\nSetting cutoff to 10%."))
+      mad3mt <- 10
     }
     
-    mad3countBelow <- median(log(scPDX$nCount_RNA)) - mad(log(scPDX$nCount_RNA))*3
-    mad3featureBelow <- median(log(scPDX$nFeature_RNA)) - mad(log(scPDX$nFeature_RNA))*3
+    ## Identify nCount MAD cutoff using only those cells that are >500 UMI.
+    ct_mad <- mad(scPDX$nCount_RNA[scPDX$nCount_RNA >= 500])
+    ct_median <- median(scPDX$nCount_RNA[scPDX$nCount_RNA >=500])
+    mad3ct <- ct_mad*3
     
-    mad3countAbove <- median(log(scPDX$nCount_RNA)) + mad(log(scPDX$nCount_RNA))*2.5
-    mad3featureAbove <- median(log(scPDX$nFeature_RNA)) + mad(log(scPDX$nFeature_RNA))*3
+    ## Identify nFeature MAD cutoff using only those cells that are >200 detected features.
+    ft_mad <- mad(scPDX$nFeature_RNA[scPDX$nFeature_RNA >= 200])
+    ft_median <- median(scPDX$nFeature_RNA[scPDX$nFeature_RNA >=200])
+    mad3ft <- ft_mad*3
+    
+    cutCountBelow <- 500
+    cutFeatureBelow <- 200
+    
+    mad3countAbove <- ct_median + mad3ct
+    mad3featureAbove <- ft_median + mad3ft
+    
+    #cutCountBelow <- median(log(scPDX$nCount_RNA)) - mad(log(scPDX$nCount_RNA))*3
+    #cutFeatureBelow <- median(log(scPDX$nFeature_RNA)) - mad(log(scPDX$nFeature_RNA))*3
+    
+    #mad3countAbove <- median(log(scPDX$nCount_RNA)) + mad(log(scPDX$nCount_RNA))*2.5
+    #mad3featureAbove <- median(log(scPDX$nFeature_RNA)) + mad(log(scPDX$nFeature_RNA))*3
   }
   else{
     mad3mt <- as.integer(toProcess[i,3])
-    mad3countBelow <- log(as.integer(strsplit(toProcess[i,4], "-")[[1]][1]))
+    cutCountBelow <- log(as.integer(strsplit(toProcess[i,4], "-")[[1]][1]))
     mad3countAbove <- log(as.integer(strsplit(toProcess[i,4], "-")[[1]][2]))
-    mad3featureBelow <- log(as.integer(strsplit(toProcess[i,5], "-")[[1]][1]))
+    cutFeatureBelow <- log(as.integer(strsplit(toProcess[i,5], "-")[[1]][1]))
     mad3featureAbove <- log(as.integer(strsplit(toProcess[i,5], "-")[[1]][2]))
   }
   ## Identify Cells to keep and Cells that are dead
   mitokeep <- names(scPDX$percent.mt)[scPDX$percent.mt < mad3mt]
   
-  countkeepBelow <- names(scPDX$nCount_RNA)[log(scPDX$nCount_RNA) > mad3countBelow]
-  countkeepAbove <- names(scPDX$nCount_RNA)[log(scPDX$nCount_RNA) < mad3countAbove]
+  countkeepBelow <- names(scPDX$nCount_RNA)[scPDX$nCount_RNA > cutCountBelow]
+  countkeepAbove <- names(scPDX$nCount_RNA)[scPDX$nCount_RNA < mad3countAbove]
   countkeep <- intersect(countkeepAbove, countkeepBelow)
   
-  featurekeepBelow <- names(scPDX$nFeature_RNA)[log(scPDX$nFeature_RNA) > mad3featureBelow]
-  featurekeepAbove <- names(scPDX$nFeature_RNA)[log(scPDX$nFeature_RNA) < mad3featureAbove]
+  featurekeepBelow <- names(scPDX$nFeature_RNA)[scPDX$nFeature_RNA > cutFeatureBelow]
+  featurekeepAbove <- names(scPDX$nFeature_RNA)[scPDX$nFeature_RNA < mad3featureAbove]
   featurekeep <- intersect(featurekeepBelow, featurekeepAbove)
   
   cellstokeep <- intersect(intersect(mitokeep, countkeep), featurekeep)
@@ -341,8 +361,8 @@ for(i in 1:dim(toProcess)[1]){
   f <- file(paste0(savedir, runID, "_", sampleID, "_report.txt"), 'w')
   if(ambientRNAadjust){
     writeLines(c("KeptCells\tDeadCells\t%Removed\tMitoCutoff\tlog(nFeatureRange)\tlog(nCountRange)\tTotalReadsBeforeAmbiantAdjustment\tTotalReadsAfterAmbiantAdjustment",
-                 paste(length(cellstokeep), length(deadcells), round((length(deadcells)/(length(cellstokeep)+length(deadcells)))*100, digits=2), round(mad3mt, digits=2), paste0(round(mad3featureBelow, digits=2), "-",round(mad3featureAbove, digits=2)), paste0(round(mad3countBelow, digits=2),"-",round(mad3countAbove, digits=2)), reads_before_ambiant, reads_after_ambiant,  sep="\t")), f)
-    writeLines(c(paste(runID, sampleID, length(cellstokeep), length(deadcells), round((length(deadcells)/(length(cellstokeep)+length(deadcells)))*100, digits=2), round(mad3mt, digits=2), paste0(round(mad3featureBelow, digits=2), "-",round(mad3featureAbove, digits=2)), paste0(round(mad3countBelow, digits=2),"-",round(mad3countAbove, digits=2)), reads_before_ambiant, reads_after_ambiant,  sep="\t")), g)
+                 paste(length(cellstokeep), length(deadcells), round((length(deadcells)/(length(cellstokeep)+length(deadcells)))*100, digits=2), round(mad3mt, digits=2), paste0(round(cutFeatureBelow, digits=2), "-",round(mad3featureAbove, digits=2)), paste0(round(cutCountBelow, digits=2),"-",round(mad3countAbove, digits=2)), reads_before_ambiant, reads_after_ambiant,  sep="\t")), f)
+    writeLines(c(paste(runID, sampleID, length(cellstokeep), length(deadcells), round((length(deadcells)/(length(cellstokeep)+length(deadcells)))*100, digits=2), round(mad3mt, digits=2), paste0(round(cutFeatureBelow, digits=2), "-",round(mad3featureAbove, digits=2)), paste0(round(cutCountBelow, digits=2),"-",round(mad3countAbove, digits=2)), reads_before_ambiant, reads_after_ambiant,  sep="\t")), g)
     
     print("Saving to 10X...")
     ## Saving to 10X format:  
@@ -352,12 +372,12 @@ for(i in 1:dim(toProcess)[1]){
     
   } else {
     writeLines(c("KeptCells\tDeadCells\t%Removed\tMitoCutoff\tlog(nFeatureRange)\tlog(nCountRange)",
-                 paste(length(cellstokeep), length(deadcells), round((length(deadcells)/(length(cellstokeep)+length(deadcells)))*100, digits=2), round(mad3mt, digits=2), paste0(round(mad3featureBelow, digits=2), "-",round(mad3featureAbove, digits=2)), paste0(round(mad3countBelow, digits=2),"-",round(mad3countAbove, digits=2)),  sep="\t")), f)
-    writeLines(c(paste(runID, sampleID, length(cellstokeep), length(deadcells), round((length(deadcells)/(length(cellstokeep)+length(deadcells)))*100, digits=2), round(mad3mt, digits=2), paste0(round(mad3featureBelow, digits=2), "-",round(mad3featureAbove, digits=2)), paste0(round(mad3countBelow, digits=2),"-",round(mad3countAbove, digits=2)), sep="\t")), g)
+                 paste(length(cellstokeep), length(deadcells), round((length(deadcells)/(length(cellstokeep)+length(deadcells)))*100, digits=2), round(mad3mt, digits=2), paste0(round(cutFeatureBelow, digits=2), "-",round(mad3featureAbove, digits=2)), paste0(round(cutCountBelow, digits=2),"-",round(mad3countAbove, digits=2)),  sep="\t")), f)
+    writeLines(c(paste(runID, sampleID, length(cellstokeep), length(deadcells), round((length(deadcells)/(length(cellstokeep)+length(deadcells)))*100, digits=2), round(mad3mt, digits=2), paste0(round(cutFeatureBelow, digits=2), "-",round(mad3featureAbove, digits=2)), paste0(round(cutCountBelow, digits=2),"-",round(mad3countAbove, digits=2)), sep="\t")), g)
     
   }
   close(f)
-  #writeLines(c(paste(runID, sampleID, length(cellstokeep), length(deadcells), round((length(deadcells)/(length(cellstokeep)+length(deadcells)))*100, digits=2), round(mad3mt, digits=2), paste0(round(mad3featureBelow, digits=2), "-",round(mad3featureAbove, digits=2)), paste0(round(mad3countBelow, digits=2),"-",round(mad3countAbove, digits=2)), reads_before_ambiant, reads_after_ambiant,  sep="\t")), g)
+  #writeLines(c(paste(runID, sampleID, length(cellstokeep), length(deadcells), round((length(deadcells)/(length(cellstokeep)+length(deadcells)))*100, digits=2), round(mad3mt, digits=2), paste0(round(cutFeatureBelow, digits=2), "-",round(mad3featureAbove, digits=2)), paste0(round(cutCountBelow, digits=2),"-",round(mad3countAbove, digits=2)), reads_before_ambiant, reads_after_ambiant,  sep="\t")), g)
   
   
   #perform filtering and print out after violin plot
@@ -373,6 +393,9 @@ for(i in 1:dim(toProcess)[1]){
   metadata_ncount[[sampleID]] <- scPDX$nCount_RNA
   metadata_nfeature[[sampleID]] <- scPDX$nFeature_RNA
   metadata_mito[[sampleID]] <- scPDX$percent.mt
+  metadata_ncount_cutoff_high[[sampleID]] <- mad3countAbove
+  metadata_nfeature_cutoff_high[[sampleID]] <- mad3featureAbove
+  metadata_mito_cutoff[[sampleID]] <- mad3mt
   
 }
 
@@ -390,14 +413,23 @@ png(file = paste0(reportDir, runID, "_nCountDensity.png"), width = 2000, height 
     meta_ncount <- as.data.frame(reshape2::melt(metadata_ncount))
     names(meta_ncount) <- c("nCount", "Sample")
     
+    meta_ncount_cutoffH <- as.data.frame(reshape2::melt(metadata_ncount_cutoff_high))
+    names(meta_ncount_cutoffH) <- c("HighCutoff", "Sample")
+    
     # Visualize the number UMIs/transcripts per cell
     meta_ncount %>% 
       ggplot(aes(color=Sample, x=nCount, fill= Sample)) + 
       geom_density(alpha = 0.2) + 
-      scale_x_log10() + 
+      #scale_x_log10() + 
       theme_classic() +
       ylab("Cell Count Density") +
-      geom_vline(xintercept = 1000)
+      geom_vline(xintercept = cutCountBelow, color = "black",
+                 linetype = "dashed",  # Optional: makes lines dashed
+                 size = 1) +
+      geom_vline(data = meta_ncount_cutoffH, 
+                 aes(xintercept = HighCutoff, color = Sample),
+                 linetype = "dashed",  # Optional: makes lines dashed
+                 size = 1)
     
 dev.off()
 
@@ -406,14 +438,23 @@ png(file = paste0(reportDir, runID, "_nFeatureDensity.png"), width = 2000, heigh
     meta_nfeature <- as.data.frame(reshape2::melt(metadata_nfeature))
     names(meta_nfeature) <- c("nFeature", "Sample")
     
+    meta_nfeature_cutoffH <- as.data.frame(reshape2::melt(metadata_nfeature_cutoff_high))
+    names(meta_nfeature_cutoffH) <- c("HighCutoff", "Sample")
+    
     # Visualize the number UMIs/transcripts per cell
     meta_nfeature %>% 
       ggplot(aes(color=Sample, x=nFeature, fill= Sample)) + 
       geom_density(alpha = 0.2) + 
-      scale_x_log10() + 
+      #scale_x_log10() + 
       theme_classic() +
       ylab("Cell Count Density") +
-      geom_vline(xintercept = 1000)
+      geom_vline(xintercept = cutFeatureBelow, color = "black",
+                 linetype = "dashed",  # Optional: makes lines dashed
+                 size = 1) +
+      geom_vline(data = meta_nfeature_cutoffH, 
+                 aes(xintercept = HighCutoff, color = Sample),
+                 linetype = "dashed",  # Optional: makes lines dashed
+                 size = 1)
 
 dev.off()
 
@@ -422,13 +463,19 @@ png(file = paste0(reportDir, runID, "_percentMitoDensity.png"), width = 2000, he
     meta_mito <- as.data.frame(reshape2::melt(metadata_mito))
     names(meta_mito) <- c("PercentMito", "Sample")
     
+    meta_mito_cutoff <- as.data.frame(reshape2::melt(metadata_mito_cutoff))
+    names(meta_mito_cutoff) <- c("Cutoff", "Sample")
+    
     # Visualize the number UMIs/transcripts per cell
     meta_mito %>% 
       ggplot(aes(color=Sample, x=PercentMito, fill= Sample)) + 
       geom_density(alpha = 0.2) + 
       theme_classic() +
       ylab("Cell Count Density") +
-      geom_vline(xintercept = 25)
+      geom_vline(data = meta_mito_cutoff, 
+                 aes(xintercept = Cutoff, color = Sample),
+                 linetype = "dashed",  # Optional: makes lines dashed
+                 size = 1)
 
 dev.off()
 
