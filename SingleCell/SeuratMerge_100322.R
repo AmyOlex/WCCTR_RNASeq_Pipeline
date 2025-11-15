@@ -42,6 +42,8 @@
 ## UPDATED 10/14/2024 to add back in the regression of UMI, update accessor calls to use the new layers format of Seurat v5, and reduced the number of PCA dims to 25 by default.
 ## UPDATED 03/17/2025 Updated the Ambient RNA correction section with SoupX to use the new Assay5 Seurat structure that utilizes layers instead of slots.
 
+renv::init()
+
 library(Seurat)
 #library(SeuratDisk)
 library(stringr)
@@ -55,6 +57,9 @@ library(dplyr)
 library("SoupX")
 library("loupeR")
 library("hdf5r")
+
+
+renv::snapshot()
 
 
 ### DEFINE FUNCTIONS

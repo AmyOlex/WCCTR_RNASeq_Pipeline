@@ -21,7 +21,7 @@
 #                 Also changing harcoded paths to Apollo pathnames. Also added the ability to enter in custom QC cutoffs using the config file.
 # UPDATE 10/16/25: Adding new filtering method to remove "slop" first before calculating the MAD, also going to have a hard lower bound cutoff.  
 #                   Hard lower cutoffs will be nFeature<200 and nCount<500, and these will be applied before MAD calculation for the upper bound.
-
+# UPDATE 10/17/25: The AmbientRNA adjustment code is BROKEN.  Need to fix.
 
 
 library("Seurat")
@@ -79,7 +79,7 @@ option_list = list(
               default = "./", metavar="character"),
   
   make_option(c("--ambientRNAadjust"), type="logical", 
-              help="Optional. Uses SoupX to adjust for ambient RNA contamination. MUST have a column in input CSV named raw10Xdata that lists the full path to the raw_feature_bc_matrix file in 10X format. (Default = FALSE).",
+              help="Optional. Uses SoupX to adjust for ambient RNA contamination. (Default = FALSE).",
               default = FALSE, action = "store_true", metavar="logical"),
   
   make_option(c("--customCutoffs"), type="logical", 
@@ -143,7 +143,7 @@ if(debug){
   reportDir <- "/lustre/home/mccbnfolab/Harada-Deb_P01/Harada_Project1_scRNAseq/"
   reportName <- paste0(reportDir, runID, "_DeadCellReport.txt")
   exclude <- FALSE
-  ambientRNAadjust <- FALSE
+  ambientRNAadjust <- TRUE
   mitoFile <- "/lustre/home/harrell_lab/scRNASeq/Harrell_SingleCellSequencing/referenceFiles/MitoCodingGenes13_human.txt"
   useCustomCutoffs <- FALSE
 }
@@ -222,26 +222,55 @@ for(i in 1:dim(toProcess)[1]){
     
     ##load in unfiltered raw data (must be in 10X format)
     raw_10x <- Read10X(data.dir = paste0(datadir,"/raw_feature_bc_matrix"))
+    # Gene names in raw matrix may have '_' instead of '-', ensure they match
     rownames(raw_10x) <- gsub("_", "-", rownames(raw_10x))
     
-    sc1 <- SoupChannel(raw_10x, scPDX@assays$RNA@counts)
+    # Seurat v5: Access the counts layer directly using LayerData() or the [[]] accessor
+    sc1 <- SoupChannel(raw_10x, LayerData(scPDX, assay = "RNA", layer = "counts"))
     sc1 <- setClusters(sc1, scPDX$soup_group)
     
-    png(file = paste0(savedir, sampleID, "_SoupXestimates.png"), width = 1000, height = 500, res = 100)
-      sc1 <- autoEstCont(sc1, doPlot=TRUE)
-    dev.off()
+    # --- Robust Estimation Block ---
+    contamination_fraction <- tryCatch({
+      # TRY to estimate contamination automatically
+      png(file = paste0(savedir, sampleID, "_SoupXestimates.png"), width = 1000, height = 500, res = 100)
+        sc1 <- autoEstCont(sc1, doPlot = TRUE)
+      dev.off()
+      # If successful, return the estimated value
+      sc1$metaData$rho
+      
+    }, error = function(e) {
+      # CATCH the error if autoEstCont fails
+      # Close the png device if it was opened before the error
+      if (dev.cur() != 1) {
+        dev.off()
+      }
+      # Print a warning message to the console
+      warning(paste("SoupX auto-estimation failed for sample", sampleID, 
+                    "- likely due to low contamination. Setting contamination to 0% and proceeding."))
+      warning("Original error message: ", e$message)
+      # Return a default low value
+      return(0.0)
+    })
     
+    # Manually set the contamination and adjust counts
+    sc1 <- setContaminationFraction(sc1, contamination_fraction)
     out1 <- adjustCounts(sc1, roundToInt = TRUE)
-    scPDX[['originalcounts']] <- CreateAssayObject(counts = scPDX@assays$RNA@counts)
-    scPDX@assays$RNA@counts <- out1
-    #recalculate nCounts, nFeature, and create the UMAP plot
-    scPDX$nCount_RNA = colSums(x = scPDX, slot = "counts")
-    scPDX$nFeature_RNA = colSums(x = GetAssayData(object = scPDX, slot = "counts") > 0)
     
-    print(paste0("Original Total Read Count: ", sum(scPDX@assays$originalcounts@counts)))
-    print(paste0("Adjusted Total Read Count: ", sum(scPDX@assays$RNA@counts)))
-    reads_before_ambiant <- sum(scPDX@assays$originalcounts@counts)
-    reads_after_ambiant <- sum(scPDX@assays$RNA@counts)
+    # Seurat v5: Create a new assay to store the original, uncorrected counts
+    scPDX[['originalcounts']] <- CreateAssayObject(counts = LayerData(scPDX, assay = "RNA", layer = "counts"))
+    
+    # Seurat v5: Replace the main 'counts' layer of the RNA assay with the adjusted counts
+    scPDX[["RNA"]]$counts <- out1
+    
+    # Seurat v5: Recalculate QC metrics using the new 'layer' argument instead of 'slot'
+    scPDX$nCount_RNA <- colSums(scPDX, assay = "RNA", layer = "counts")
+    scPDX$nFeature_RNA <- colSums(LayerData(scPDX, assay = "RNA", layer = "counts") > 0)
+    
+    # Seurat v5: Access assay data for summary statistics using LayerData()
+    print(paste0("Original Total Read Count: ", sum(LayerData(scPDX, assay = "originalcounts", layer = "counts"))))
+    print(paste0("Adjusted Total Read Count: ", sum(LayerData(scPDX, assay = "RNA", layer = "counts"))))
+    reads_before_ambiant <- sum(LayerData(scPDX, assay = "originalcounts", layer = "counts"))
+    reads_after_ambiant <- sum(LayerData(scPDX, assay = "RNA", layer = "counts"))
     
   }
   
