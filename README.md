@@ -1,4 +1,6 @@
-# Single Cell RNASeq Pipeline used in Altman Manuscript
+# * Migration to NextFlow in progress - Check back soon for updates! *
+
+## Single Cell RNASeq Pipeline used in Altman Manuscript
 Current Pipeline used to process and integrate the latest 2023 samples and organoids into the master merge and collaboration Visvader master merge with subtyping analysis.
 
 ## Step 01: FastQC and MultiFastQC
