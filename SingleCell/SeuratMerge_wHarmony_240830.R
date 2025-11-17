@@ -530,6 +530,14 @@ if(mergeType == "integration"){
 
 #####
 ## Run Harmony Normalization
+# Harmony works on an existing matrix with cell embeddings and outputs its transformed version with the datasets 
+# aligned according to some user-defined experimental conditions. By default, harmony will look up the `pca` cell 
+# embeddings and use these to run harmony. Therefore, it assumes that the Seurat object has these embeddings already precomputed.
+
+## Calculate PCA cell embeddings
+
+# Here, using `Seurat::NormalizeData()`, we will be generating a union of highly variable genes using each condition (the control and stimulated cells). These features are going to be subsequently used to generate the 20 PCs with `Seurat::RunPCA()`.
+
 #####
 seurat.merged <- RunHarmony(seurat.merged, 'orig.ident', verbose = FALSE)
 

@@ -41,8 +41,9 @@
 ## UPDATED 5/29/2024 to fix the annotation issue with the LoupeR package conversion.
 ## UPDATED 10/14/2024 to add back in the regression of UMI, update accessor calls to use the new layers format of Seurat v5, and reduced the number of PCA dims to 25 by default.
 ## UPDATED 03/17/2025 Updated the Ambient RNA correction section with SoupX to use the new Assay5 Seurat structure that utilizes layers instead of slots.
+## UPDATED 11/15/2025 Added Harmony Integration workflow.
 
-renv::init()
+#renv::init()
 
 library(Seurat)
 #library(SeuratDisk)
@@ -57,19 +58,19 @@ library(dplyr)
 library("SoupX")
 library("loupeR")
 library("hdf5r")
+library("harmony")
 
 
-renv::snapshot()
-
+#renv::snapshot()
 
 ### DEFINE FUNCTIONS
 ## The following file is saved on Fenn in case this URL goes dark: /vcu_gpfs2/home/alolex/src/WCCTR_RNASeq_Pipeline/SingleCell
 mouse_human_genes = read.csv("http://www.informatics.jax.org/downloads/reports/HOM_MouseHumanSequence.rpt",sep="\t")
 convert_human_to_mouse <- function(gene_list){
   ## This function was copied from https://support.bioconductor.org/p/129636/
-
+  
   output = c()
-
+  
   for(gene in gene_list){
     class_key = (mouse_human_genes %>% filter(Symbol == gene & Common.Organism.Name=="human"))[['DB.Class.Key']]
     if(!identical(class_key, integer(0)) ){
@@ -79,7 +80,7 @@ convert_human_to_mouse <- function(gene_list){
       }
     }
   }
-
+  
   return (output)
 }
 
@@ -108,16 +109,16 @@ localtest = FALSE
 ###########################################
 #### Local Testing Block
 if(localtest){
-  setwd("/lustre/home/harrell_lab/scRNASeq/config_slurm/06_SimpleMerge/")
+  setwd("/lustre/home/harrell_lab/scRNASeq/config_slurm/06_HarmonyIntegration/")
   runID <- "RegressionTEST"
-  inFile <- "/lustre/home/harrell_lab/scRNASeq/config_slurm/06_SimpleMerge/06_SeuratSimpleMerge_LungOnly_GRCh38_250519.csv"
-  outDir <- "/lustre/home/harrell_lab/scRNASeq/config_slurm/06_SimpleMerge/"
+  inFile <- "/lustre/home/harrell_lab/scRNASeq/config_slurm/06_HarmonyIntegration/06_Harmony_GRCh38_CarboPaperReAlignCRv9_BCM-3887_251115.csv"
+  outDir <- "/lustre/home/harrell_lab/scRNASeq/config_slurm/06_HarmonyIntegration/"
   features <- ""
   savedir <- paste0(outDir,runID)
   numCores <- 1
   numAnchors <- 2000
   normalization <- "LogNormalize"
-  mergeType <- "simple"
+  mergeType <- "simple" # This will be overridden by harmony = TRUE
   parallel <- FALSE
   saveH5 <- TRUE
   species <- "human"
@@ -129,6 +130,7 @@ if(localtest){
   keep <- ""
   ambientRNAadjust <- FALSE
   regressUMI <- FALSE
+  harmony <- TRUE
   options(future.globals.maxSize = 8000 * 1024^2)
 }
 ###########################################
@@ -153,7 +155,7 @@ option_list = list(
               help="Type of normalization to run prior to merging/integrating (SCT or LogNormalize). Default is SCT.",
               default = "SCT", metavar="character"),
   make_option(c("-t", "--type"), type="character",
-              help="Type of merging to do (simple or integration). Default is simple.",
+              help="Type of merging to do (simple or integration). Default is simple. This is ignored if --harmony is used.",
               default = "simple", metavar="character"),
   make_option(c("-f", "--features"), type="character",
               help="Optional. A list of features to use for the PCA, UMAP, tSNE, and Clustering.",
@@ -193,6 +195,9 @@ option_list = list(
               default = FALSE, action = "store_true", metavar="logical"),
   make_option(c("--ambientRNAadjust"), type="logical",
               help="Optional. Uses SoupX to adjust for ambient RNA contamination. MUST have a column in input CSV named 'raw10Xdata' that lists the full path to the raw_feature_bc_matrix file in 10X format. (Default = FALSE).",
+              default = FALSE, action = "store_true", metavar="logical"),
+  make_option(c("--harmony"), type="logical", 
+              help="Optional. Performs Harmony dataset normalization. This will override -t/--type. (Default = FALSE).",
               default = FALSE, action = "store_true", metavar="logical")
 );
 
@@ -231,6 +236,7 @@ species <- opt$species
 exportCounts <- opt$exportCounts
 keep <- opt$keep
 ambientRNAadjust <- opt$ambientRNAadjust
+harmony <- opt$harmony
 
 
 if(species == "mouse"){
@@ -250,7 +256,11 @@ if(species == "mouse"){
 print("Summary of input options:\n")
 print(paste("Run Name: ", runID))
 print(paste("ConfigFile: ", inFile))
-print(paste("Merge Type: ", mergeType))
+if(harmony){
+  print("Merge Type: Harmony Integration")
+} else {
+  print(paste("Merge Type: ", mergeType))
+}
 print(paste("Output Directory:" , outDir))
 print(paste("Cores Specified: ", numCores))
 print(paste("Number of Anchor Genes: ", numAnchors))
@@ -286,7 +296,7 @@ barcodes_to_remove = ""
 if(exclude != ""){
   tmp <- read.delim(exclude, header=FALSE)
   barcodes_to_remove <- as.data.frame(t(as.data.frame(strsplit(tmp$V1,split = "-"))))
-
+  
   #sub <- df[df$V2 == 21, "V1"]
 }
 
@@ -307,7 +317,7 @@ sc_start <- Sys.time()
 
 seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   print(paste("Importing data for row", i, "from sample", toProcess[i,"SampleName"]))
-
+  
   if(toProcess[i,"DataType"] == "Seurat"){
     print(paste0(toProcess[i,"SampleName"], ": Loading Seurat h5 File..."))
     library(SeuratDisk)
@@ -324,46 +334,46 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
     sc.data <- Read10X(data.dir = toProcess[i,"SamplePath"])  ## must point to the filtered_feature_bc_matrix directory.
     # Initialize the Seurat object
     h5 <- CreateSeuratObject(counts = sc.data, project = toProcess[i,"SampleName"], min.cells = 0, min.features = 0)
-
+    
   }
   else{
     print("Error unknown data type.")
     quit(1)
   }
-
+  
   # Run ambient RNA adjustment FIRST, before excluding or doing any further processing
   if(ambientRNAadjust & toProcess[i,"RunSoupX"] == 1){
     print(paste0("Ambient RNA Adjusment for sample: ", toProcess[i,"SampleName"]))
-
+    
     ## add Soup Groups to filtered feature data
     h5 <- add_soup_groups(h5)
-
+    
     ##load in unfiltered raw data (must be in 10X format)
     raw_10x <- Read10X(data.dir = toProcess[i,"raw10Xdata"])
     rownames(raw_10x) <- gsub("_", "-", rownames(raw_10x))
-
+    
     sc1 <- SoupChannel(raw_10x, GetAssayData(h5, assay = "RNA", layer = "counts"))
     sc1 <- setClusters(sc1, h5$soup_group)
-
+    
     png(file = paste0(savedir, toProcess[i,"SampleName"], "_SoupXestimates.png"), width = 1000, height = 500, res = 100)
-      sc1 <- autoEstCont(sc1, doPlot=TRUE)
+    sc1 <- autoEstCont(sc1, doPlot=TRUE)
     dev.off()
-
+    
     out1 <- adjustCounts(sc1, roundToInt = TRUE)
     h5[['originalcounts']] <- CreateAssayObject(counts = GetAssayData(h5, assay = "RNA", layer = "counts"))
     h5 <- SetAssayData(h5, assay = "RNA", layer = "counts", new.data = out1)
-
+    
     #recalculate nCounts, nFeature, and create the UMAP plot
     h5$nCount_RNA = colSums(GetAssayData(h5, assay = "RNA", layer = "counts"))
     h5$nFeature_RNA = colSums(GetAssayData(h5, assay = "RNA", layer = "counts") > 0)
-
+    
     print(paste0("Original Total Read Count: ", sum(GetAssayData(h5, assay = "originalcounts", layer = "counts"))))
     print(paste0("Adjusted Total Read Count: ", sum(GetAssayData(h5, assay = "RNA", layer = "counts"))))
     #reads_before_ambiant <- sum(h5@assays$originalcounts@counts)
     #reads_after_ambiant <- sum(h5@assays$RNA@counts)
-
+    
   }
-
+  
   if(filtercells){
     print(paste0(toProcess[i,"SampleName"], ": Loading list of cell barcodes to keep..."))
     file_name <- trimws(toProcess[i,"Cells2Keep"])
@@ -373,21 +383,21 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
     else {
       print(paste("ERROR, file not found: ", toProcess[i,"Cells2Keep"]))
     }
-
+    
     print(paste0(toProcess[i,"SampleName"], ": Keeping ", length(cells2keep$barcode), " cells."))
     print(paste0(toProcess[i,"SampleName"], ": Downsampling to ", downsample, " percent."))
-
+    
     if(downsample < 100){
       print(paste0(toProcess[i,"SampleName"], ": Downsampling kept cells to ", downsample, "%..."))
     }
-
+    
     if(barcodes_to_remove != ""){
       to_remove_this_sample <- paste0(barcodes_to_remove[barcodes_to_remove$V2 == i, "V1"],"-1")
       print(paste0(toProcess[i,"SampleName"], ": Removing ",length(to_remove_this_sample)," cells to exclude from cells2keep."))
       cells2keep <- cells2keep[!(cells2keep$barcode %in% to_remove_this_sample),,drop=FALSE]
       print(paste0(toProcess[i,"SampleName"], ": After EXCLUSION keeping ", length(cells2keep$barcode), " cells."))
     }
-
+    
     if(barcodes_to_keep != ""){
       to_keep_this_sample <- paste0(barcodes_to_keep[barcodes_to_keep$V2 == i, "V1"],"-1")
       print(paste0(toProcess[i,"SampleName"], ": Keeping ",length(to_keep_this_sample)," cells from cells2keep."))
@@ -395,15 +405,15 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
       print(paste0(toProcess[i,"SampleName"], ": After FILTERING keeping ", length(cells2keep$barcode), " cells."))
       #print(head(cells2keep))
     }
-
+    
     if(length(cells2keep$barcode) > 0){
       samplesize <- floor((downsample/100)*length(cells2keep$barcode))
       set.seed(i)
       sampledcells <- sample(x = cells2keep$barcode, size = samplesize, replace = F)
-
+      
       print(paste0(toProcess[i,"SampleName"], ": After DOWNSAMPLING keeping ", length(sampledcells), " cells."))
-
-    #print(paste0("Filtering cells2keep using file: ", toProcess[i,"Cells2Keep"]))
+      
+      #print(paste0("Filtering cells2keep using file: ", toProcess[i,"Cells2Keep"]))
       #print(head(sampledcells))
       h5 <- subset(h5, cells = sampledcells)
     }
@@ -412,7 +422,7 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
       next
     }
   }
-
+  
   #if(exclude == "" and !filtercells){
   #  to_remove_this_sample <- barcodes_to_remove[barcodes_to_remove$V2 == i, "V1"]
   #  print(paste("Excluding cells : ", str(length(to_remove_this_sample)) ))
@@ -426,16 +436,16 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
   #
   #  h5 <- subset(h5, cells = sampledcells)
   #}
-
+  
   print(paste0(toProcess[i,"SampleName"], ": Renaming Cells..."))
   ## Rename the barcodes in each file with a count greater than 1
   if(i > 1){
     h5 <- RenameCells(h5,  new.names = str_replace(names(h5$orig.ident), "-1", paste0("-",i)))
     #print(head(names(h5$orig.ident)))
   }
-
+  
   mid_time <- Sys.time()
-
+  
   if(normalization == "SCT"){
     print(paste0(toProcess[i,"SampleName"], ": SCTransform..."))
     ## Normalize each dataset with SCT
@@ -449,15 +459,15 @@ seurat_list <- foreach(i=1:dim(toProcess)[1]) %dopar% {
     #print(paste0(toProcess[i,"SampleName"], ": scaleData"))
     h5 <- ScaleData(h5, verbose = FALSE)
     print(h5)
-
+    
   }
-
-
+  
+  
   ## Add seurat obj to list now
   #seurat_list <- c(seurat_list,h5)
-
+  
   print(Sys.time() - mid_time)
-
+  
   print(h5)
 }  ## end processing of each sample.
 
@@ -485,13 +495,32 @@ plan()
 
 
 ###### Run Integration
-if(mergeType == "integration"){
-  print("Running Integration...")
+if(harmony){
+  print("Running Harmony Integration...")
+  
+  print("Step 1: Running simple merge...")
+  seurat.merged <- merge(seurat_list[[1]], y = seurat_list[2:length(seurat_list)], merge.data=TRUE, project=runID)
+  
+  print("Step 2: Processing merged object (RNA Assay)...")
+  # We will use the RNA assay.
+  DefaultAssay(seurat.merged) <- "RNA"
+  
+  # Find variable features on the merged object
+  # This is necessary regardless of individual normalization method for the downstream PCA
+  print("Finding Variable Features on merged RNA assay...")
+  seurat.merged <- FindVariableFeatures(seurat.merged, selection.method = "vst", nfeatures = numAnchors, verbose = FALSE)
+  
+  # NOTE: ScaleData, RunPCA, and RunHarmony will be run *after* the
+  # optional CellCycle/UMI regression step to ensure data is
+  # scaled correctly only once.
+  
+} else if(mergeType == "integration"){
+  print("Running Seurat Integration...")
   ## Select integration features
   if(normalization == "SCT"){
     mid_time <- Sys.time()
     hfile_features <- SelectIntegrationFeatures(object.list = seurat_list, nfeatures = numAnchors)
-
+    
     seurat_list <- PrepSCTIntegration(object.list = seurat_list, anchor.features = hfile_features, verbose = FALSE)
     print(Sys.time() - mid_time)
   } else{
@@ -502,8 +531,8 @@ if(mergeType == "integration"){
   print("Finding Anchors...")
   #seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = normalization, anchor.features = hfile_features, reference = 5, verbose = FALSE)
   seurat.anchors <- FindIntegrationAnchors(object.list = seurat_list, normalization.method = normalization, anchor.features = hfile_features, verbose = FALSE)
-
-
+  
+  
   if(regressCC){
     ## Ensure cell cycle genes are included in the list
     genes.to.integrate <- union(seurat.anchors@anchor.features, cc.genes)
@@ -511,23 +540,23 @@ if(mergeType == "integration"){
   else{
     genes.to.integrate <- seurat.anchors@anchor.features
   }
-
+  
   ## Save Anchor Feature File
   write.csv(genes.to.integrate, file=paste0(savedir, "_Seurat", normalization, "Merge_AnchorList.csv"), quote = FALSE, row.names = FALSE)
-
-
-
+  
+  
+  
   print(Sys.time() - mid_time)
-
+  
   mid_time <- Sys.time()
   print("Performing integration...")
   #seurat.merged <- IntegrateData(anchorset = seurat.anchors, features.to.integrate = genes.to.integrate, normalization.method = normalization, verbose = FALSE)
   seurat.merged <- IntegrateEmbeddings(anchorset = seurat.anchors, verbose = TRUE, reduction = "pcaproject")
   print(Sys.time() - mid_time)
-
+  
 } else if(mergeType == "simple"){
   print("Running simple merge...")
-
+  
   seurat.merged <- merge(seurat_list[[1]], y = seurat_list[2:length(seurat_list)], merge.data=TRUE, project=runID)
   seurat.merged <- FindVariableFeatures(seurat.merged, selection.method = "vst", nfeatures = numAnchors, verbose = FALSE)
 }
@@ -556,11 +585,51 @@ if(regressCC | regressUMI){
   to_regress <- c()
   if(regressUMI){to_regress <- c(to_regress,"nCount_RNA")}
   if(regressCC){to_regress <- c(to_regress,"CC.Difference")}
-
+  
   print(paste("Regressing out:", paste(to_regress, collapse = ", ")))
-
+  
   seurat.merged <- ScaleData(seurat.merged, vars.to.regress = to_regress, features = rownames(seurat.merged))
 }
+
+#
+# ** NEW HARMONY BLOCK **
+# Run PCA and Harmony *if* harmony is selected.
+# This must be done *after* the *final* ScaleData call (including regression).
+# Some help: https://portals.broadinstitute.org/harmony/reference/RunHarmony.html
+reduction.to.use <- "pca" # Default
+if(harmony){
+  print("Running PCA for Harmony...")
+  # Use the VariableFeatures found during the merge step
+  seurat.merged <- RunPCA(seurat.merged, verbose = FALSE, features = VariableFeatures(seurat.merged))
+  
+  print("Running Harmony...")
+  # 'orig.ident' holds the sample names, which is what we want to correct for.
+  seurat.merged <- RunHarmony(seurat.merged, group.by.vars = "orig.ident")
+  
+  print("Generating Harmony QC plots...")
+  # 'seurat.merged' now contains BOTH 'pca' (before) and 'harmony' (after)
+  
+  # Corrected 'seurat.merged2' to 'seurat.merged'
+  p1 <- Seurat::DimPlot(seurat.merged, reduction = 'pca', group.by = 'orig.ident')
+  p2 <- Seurat::DimPlot(seurat.merged, reduction = 'harmony', group.by = 'orig.ident')
+  
+  # Add titles and remove redundant legends from VlnPlots
+  p3 <- Seurat::VlnPlot(seurat.merged, features = 'PC_1', group.by = 'orig.ident')
+  p4 <- Seurat::VlnPlot(seurat.merged, features = 'harmony_1', group.by = 'orig.ident')
+  
+  # Combine all four plots into a 2x2 grid
+  combined_plot <- cowplot::plot_grid(p1, p2, p3, p4, nrow = 2, rel_heights = c(1, 1.5))
+  
+  # Save the combined plot to a file
+  qc_filename <- paste0(savedir, "_Harmony_QC_Plot.png")
+  ggplot2::ggsave(qc_filename, plot = combined_plot, width = 16, height = 12)
+  print(paste("Harmony QC plot saved to:", qc_filename))
+  
+  reduction.to.use <- "harmony"
+  print("Harmony complete. Downstream analysis will use 'harmony' reduction.")
+}
+# ** END NEW BLOCK **
+
 
 mid_time <- Sys.time()
 print("Saving to 10X...")
@@ -570,12 +639,12 @@ if(normalization == "SCT"){
   write10xCounts(x=LayerData(seurat.merged, assay="RNA", layer='counts'), path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_rawCounts.h5"), version="3")
   write10xCounts(x=LayerData(seurat.merged, assay="SCT", layer='data'), path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_SCTdata_normalizedCounts.h5"), version="3")
   write10xCounts(x=LayerData(seurat.merged, assay="RNA", layer='data'), path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_normalizedCounts.h5"), version="3")
-
+  
   print(Sys.time() - mid_time)
 } else if(normalization == "LogNormalize"){
   write10xCounts(x=LayerData(seurat.merged, assay="RNA", layer='counts'), path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_rawCounts.h5"), version="3")
   write10xCounts(x=LayerData(seurat.merged, assay="RNA", layer='data'), path=paste0(savedir, "_seurat_",mergeType,"Merge_",normalization,"_RNAdata_normalizedCounts.h5"), version="3")
-
+  
   print(Sys.time() - mid_time)
 }
 
@@ -622,14 +691,14 @@ for(n in 1:(dim(toProcess)[2]-1)){
     anno <- idents
     names(anno) <- c("barcode", names(toProcess)[n])
     anno[,2] <- as.character(anno[,2])
-
+    
     for(i in 1:dim(toProcess)[1]){
       anno[anno[,2] == toProcess[i,1], 2] <- toProcess[i,n]
     }
-
+    
     seurat.merged@meta.data[names(toProcess)[n]] <- anno[,2,drop=FALSE]
-
-
+    
+    
     ## Save Sample Annotations
     write.csv(anno, file=paste0(savedir, "_Seurat_",mergeType,"Merge_", normalization, "_", names(toProcess)[n], ".csv"), quote = FALSE, row.names = FALSE)
   }
@@ -641,75 +710,153 @@ print(Sys.time() - mid_time)
 print("Running PCA, UMAP, tSNE...")
 mid_time <- Sys.time()
 ### Create Visualizations
-if(mergeType == "integration"){
+
+# ** MODIFIED **
+# Set default assay based on merge type
+# Note: reduction.to.use was set after regression/harmony block
+if(harmony){
+  DefaultAssay(seurat.merged) <- "RNA" # Harmony was run on RNA
+} else if(mergeType == "integration"){
   DefaultAssay(seurat.merged) <- "integrated"
 } else {
   DefaultAssay(seurat.merged) <- "RNA"
 }
 
-
-#if(normalization == "LogNormalize"){
-#  seurat.merged <- ScaleData(seurat.merged, verbose = FALSE)
-#}
-
 ## Use features for PCA if provided.
 if(features != ""){
   print("Subsetting PCA, UMAP, tSNE, and clustering on input features.")
-
-  ## debugging issues with using a small gene list.
-  #rna_assay <- seurat.merged@assays$RNA
-  #rna_assay <- rna_assay[row.names(rna_assay) %in% my_feats,]
-
-  #which(colSums(rna_assay) == 0)
-  #rna_assay <- rna_assay[,-12]
-  #rna_assay <- rna_assay[,-44]
-  #Heatmap(cor(rna_assay))
-  #std <- colSds(rna_assay)
-  #rna_assay2 <- rna_assay[,which(std >= quantile(std)[3])]
-  #colnames(rna_assay2)
-
   my_feats <- read.delim(features,header=FALSE)[,1]
-  seurat.merged <- ScaleData(seurat.merged, verbose = FALSE, features = my_feats)
-  seurat.merged <- RunPCA(seurat.merged, verbose = FALSE, features = my_feats, npcs = 50, approx=FALSE)
+  
+  # ** NEW LOGIC **
+  # Only re-run ScaleData and PCA if harmony was NOT run
+  if(!harmony){
+    print("Re-scaling data on feature subset...")
+    seurat.merged <- ScaleData(seurat.merged, verbose = FALSE, features = my_feats)
+    print("Running PCA on feature subset...")
+    seurat.merged <- RunPCA(seurat.merged, verbose = FALSE, features = my_feats, npcs = 50, approx=FALSE)
+  } else {
+    print("WARNING: Harmony was already run using all variable features.")
+    print("         The 'features' flag will be ignored for dimensional reduction and clustering.")
+  }
+  
 } else {
-  seurat.merged <- RunPCA(seurat.merged, verbose = FALSE)
+  # Run PCA ONLY IF harmony was NOT run (it was run earlier)
+  if(!harmony){
+    print("Running PCA...")
+    seurat.merged <- RunPCA(seurat.merged, verbose = FALSE)
+  }
 }
 
-seurat.merged <- RunUMAP(seurat.merged, dims = 1:min(25,length(seurat.merged@reductions$pca)))
-seurat.merged <- RunTSNE(seurat.merged, dims = 1:min(25,length(seurat.merged@reductions$pca)), check_duplicates = FALSE)
+if(harmony){
+  # --- Run PCA (un-integrated) ---
+  print("Running UMAP/tSNE on 'pca' (un-integrated)...")
+  # Save the PCA-based reductions with unique names
+  seurat.merged <- RunUMAP(seurat.merged, dims = 1:min(25,length(seurat.merged@reductions$pca)), reduction = "pca", reduction.name = "umap.pca")
+  seurat.merged <- RunTSNE(seurat.merged, dims = 1:min(25,length(seurat.merged@reductions$pca)), reduction = "pca", check_duplicates = FALSE, reduction.name = "tsne.pca")
+  
+  #png(filename = paste0(savedir, "_umap_pca.png"), res=150, width = 1100, height = 800)
+  p1 <- DimPlot(seurat.merged, reduction = "umap.pca", group.by="orig.ident") + ggplot2::ggtitle("Group.By = orig.ident | Reduction = PCA")
+  #dev.off()
+  
+  #png(filename = paste0(savedir, "_tsne_pca.png"), res=150, width = 1100, height = 800)
+  p2 <- DimPlot(seurat.merged, reduction = "tsne.pca", group.by="orig.ident") + ggplot2::ggtitle("Group.By = orig.ident | Reduction = PCA")
+  #dev.off()
+  
+  # --- Run Harmony (integrated) ---
+  print("Running UMAP/tSNE on 'harmony' (integrated)...")
+  # This will create the default 'umap' and 'tsne' reductions for downstream analysis
+  seurat.merged <- RunUMAP(seurat.merged, dims = 1:min(25,length(seurat.merged@reductions$harmony)), reduction = "harmony", reduction.name = "umap")
+  seurat.merged <- RunTSNE(seurat.merged, dims = 1:min(25,length(seurat.merged@reductions$harmony)), reduction = "harmony", check_duplicates = FALSE, reduction.name = "tsne")
+  
+  #png(filename = paste0(savedir, "_umap_harmony.png"), res=150, width = 1100, height = 800)
+  p3 <- DimPlot(seurat.merged, reduction = "umap", group.by="orig.ident") + ggplot2::ggtitle("Group.By = orig.ident | Reduction = Harmony")
+  #dev.off()
+  
+  #png(filename = paste0(savedir, "_tsne_harmony.png"), res=150, width = 1100, height = 800)
+  p4 <- DimPlot(seurat.merged, reduction = "tsne", group.by="orig.ident") + ggplot2::ggtitle("Group.By = orig.ident | Reduction = Harmony")
+  #dev.off()
+  
+  # Combine all four plots into a 2x2 grid
+  combined_plot_umap <- cowplot::plot_grid(p1, p3, nrow = 1)
+  combined_plot_tsne <- cowplot::plot_grid(p2, p4, nrow = 1)
+  
+  # Save the combined plot to a file
+  qc_filename_umap <- paste0(savedir, "_QC_UMAP.png")
+  ggplot2::ggsave(qc_filename_umap, plot = combined_plot_umap, width = 15, height = 5)
+  print(paste("UMAP QC plot saved to:", qc_filename_umap))
+  
+  qc_filename_tsne <- paste0(savedir, "_QC_tSNE.png")
+  ggplot2::ggsave(qc_filename_tsne, plot = combined_plot_tsne, width = 15, height = 5)
+  print(paste("UMAP QC plot saved to:", qc_filename_tsne))
+  
+  
+} else {
+  # --- Original Behavior: Run PCA only ---
+  print("Running UMAP/tSNE on 'pca'...")
+  seurat.merged <- RunUMAP(seurat.merged, dims = 1:min(25,length(seurat.merged@reductions$pca)), reduction = "pca", reduction.name = "umap")
+  seurat.merged <- RunTSNE(seurat.merged, dims = 1:min(25,length(seurat.merged@reductions$pca)), reduction = "pca", check_duplicates = FALSE, reduction.name = "tsne")
+  
+  png(filename = paste0(savedir, "_umap_pca.png"), res=150, width = 1100, height = 800)
+  DimPlot(seurat.merged, reduction = "umap", group.by="orig.ident") + ggplot2::ggtitle("Group.By = orig.ident | Reduction = PCA")
+  dev.off()
+  
+  png(filename = paste0(savedir, "_tsne_pca.png"), res=150, width = 1100, height = 800)
+  DimPlot(seurat.merged, reduction = "tsne", group.by="orig.ident") + ggplot2::ggtitle("Group.By = orig.ident | Reduction = PCA")
+  dev.off()
+}
+# ** END MODIFIED BLOCK **
 
-png(filename = paste0(savedir, "_pca.png"), res=150, width = 1100, height = 800)
-  DimPlot(seurat.merged, reduction = "pca", group.by="orig.ident")
-dev.off()
 
-png(filename = paste0(savedir, "_umap.png"), res=150, width = 1100, height = 800)
-  DimPlot(seurat.merged, reduction = "umap", group.by="orig.ident")
-dev.off()
+# ** MODIFIED BLOCK **
+# Define a suffix for filenames based on integration
+reduction_suffix <- "_pca"
+if(harmony){
+  reduction_suffix <- "_harmony"
+  # Also update mergeType for final filename consistency
+  mergeType <- "Harmony"
+}
 
-png(filename = paste0(savedir, "_tsne.png"), res=150, width = 1100, height = 800)
-  DimPlot(seurat.merged, reduction = "tsne", group.by="orig.ident")
-dev.off()
+# The 'umap' and 'tsne' reductions in seurat.merged are now the
+# final ones we want to save (either harmony-based or pca-based)
 
 if(features != ""){
-  write.csv(seurat.merged@reductions$umap@cell.embeddings, file = paste0(savedir, "_UMAPCoordinates_25PCs_",mergeType,"Merge_",normalization,"_wFeatureSubset.csv"), quote = FALSE)
-  write.csv(seurat.merged@reductions$tsne@cell.embeddings, file = paste0(savedir, "_tSNECoordinates_25PCs_",mergeType,"Merge_",normalization,"_wFeatureSubset.csv"), quote = FALSE)
+  umap_file <- paste0(savedir, "_UMAPCoordinates_",mergeType,"Merge_",normalization, reduction_suffix, "_wFeatureSubset.csv")
+  tsne_file <- paste0(savedir, "_tSNECoordinates_",mergeType,"Merge_",normalization, reduction_suffix, "_wFeatureSubset.csv")
+  
+  write.csv(seurat.merged@reductions$umap@cell.embeddings, file = umap_file, quote = FALSE)
+  write.csv(seurat.merged@reductions$tsne@cell.embeddings, file = tsne_file, quote = FALSE)
   print(Sys.time() - mid_time)
+  
 } else {
-  write.csv(seurat.merged@reductions$umap@cell.embeddings, file = paste0(savedir, "_UMAPCoordinates_25PCs_",mergeType,"Merge_",normalization,".csv"), quote = FALSE)
-  write.csv(seurat.merged@reductions$tsne@cell.embeddings, file = paste0(savedir, "_tSNECoordinates_25PCs_",mergeType,"Merge_",normalization,".csv"), quote = FALSE)
+  umap_file <- paste0(savedir, "_UMAPCoordinates_",mergeType,"Merge_",normalization, reduction_suffix, ".csv")
+  tsne_file <- paste0(savedir, "_tSNECoordinates_",mergeType,"Merge_",normalization, reduction_suffix, ".csv")
+  
+  write.csv(seurat.merged@reductions$umap@cell.embeddings, file = umap_file, quote = FALSE)
+  write.csv(seurat.merged@reductions$tsne@cell.embeddings, file = tsne_file, quote = FALSE)
   print(Sys.time() - mid_time)
 }
+
+
+
 
 print("SNN Clustering...")
 mid_time <- Sys.time()
 ### Cluster the Data
-seurat.merged <- FindNeighbors(seurat.merged, reduction = "pca", dims = 1:min(25,length(seurat.merged@reductions$pca)), graph.name = "merged_snn")
+# ** MODIFIED **
+print(paste("Finding Neighbors on reduction:", reduction.to.use))
+seurat.merged <- FindNeighbors(seurat.merged, reduction = reduction.to.use, dims = 1:min(25,length(seurat.merged@reductions[[reduction.to.use]])), graph.name = "merged_snn")
 seurat.merged <- FindClusters(seurat.merged, resolution = 0.4, graph.name = "merged_snn")
 seurat.merged <- FindClusters(seurat.merged, resolution = 0.6, graph.name = "merged_snn")
 
-DimPlot(seurat.merged, reduction = "umap", group.by="merged_snn_res.0.6")
-DimPlot(seurat.merged, reduction = "umap", group.by="merged_snn_res.0.4")
+p1 <- DimPlot(seurat.merged, reduction = "umap", group.by="merged_snn_res.0.6")
+p2 <- DimPlot(seurat.merged, reduction = "umap", group.by="merged_snn_res.0.4")
 
+combined_plot_snn <- cowplot::plot_grid(p1, p2, nrow = 1)
+
+# Save the combined plot to a file
+qc_filename_snn <- paste0(savedir, "_QC_SNNClusters.png")
+ggplot2::ggsave(qc_filename_snn, plot = combined_plot_snn, width = 15, height = 5)
+print(paste("SNN QC plot saved to:", qc_filename_snn))
 
 clusters1 <- data.frame("barcode" = names(seurat.merged$merged_snn_res.0.4), "SNN_res0.4_Clusters" = seurat.merged$merged_snn_res.0.4)
 clusters2 <- data.frame("barcode" = names(seurat.merged$merged_snn_res.0.6), "SNN_res0.6_Clusters" = seurat.merged$merged_snn_res.0.6)
@@ -721,6 +868,14 @@ if(features != ""){
   write.csv(clusters1, file = paste0(savedir, "_SNN_Clusters_res0.4_",mergeType,"MergedData.csv"), quote = FALSE, row.names = FALSE)
   write.csv(clusters2, file = paste0(savedir, "_SNN_Clusters_res0.6_",mergeType,"MergedData.csv"), quote = FALSE, row.names = FALSE)
 }
+
+# ** NEW BLOCK FOR FILENAMING **
+# If harmony was run, modify the mergeType variable for output filenames
+# to reflect this.
+if(harmony){
+  mergeType <- "Harmony"
+}
+# ** END NEW BLOCK **
 
 print(Sys.time() - mid_time)
 
@@ -748,13 +903,3 @@ if(saveH5){
     saveRDS(seurat.merged, file = paste0(savedir, "_Seurat_",mergeType,"Merge_",normalization,"_Annotated.rds"), compress = TRUE)
   }
 }
-
-
-
-
-print(Sys.time() - mid_time)
-
-print("Seurat merging completed in: ")
-end_time <- Sys.time()
-print(end_time - start_time)
-
